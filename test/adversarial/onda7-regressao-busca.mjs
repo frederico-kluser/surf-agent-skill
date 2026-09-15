@@ -32,8 +32,8 @@
 // additionally makes any real socket/fetch attempt fail loudly.
 //
 // Run:
-//   NODE_OPTIONS="--require /tmp/surf-audit-20260830/test-busca/preload-zero-rede.cjs" \
-//   HOME=$(mktemp -d) node test/adversarial/onda7-regressao-busca.mjs
+//   node test/adversarial/onda7-regressao-busca.mjs   (it re-execs itself into a
+//   throwaway HOME; test/fixtures/preload-zero-rede.cjs is the optional wire guard)
 //
 // Wall time ~5s: two real ~1s pacing slots in a pacing-armed grandchild, plus
 // two end-to-end surf-ai runs against the stub.

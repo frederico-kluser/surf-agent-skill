@@ -23,15 +23,17 @@
 //   normal   — exactly one wave, fitted inside the harness's bash timeout so it
 //              can never be killed mid-flight.
 //   unlimit  — as many waves as the question needs, no self-imposed deadline.
-//   --sub-agents N — the ONE simultaneity budget (default 10). It is the wave
-//              width and the worker-pool width at the same time, so the two can
-//              never multiply into a burst the Brave plan cannot serve.
+//   --sub-agents N — the ONE simultaneity budget (default 10): never more than
+//              N searches at once, so sub-agents and their searches can never
+//              multiply into a burst the Brave plan cannot serve. In unlimit it
+//              is also each wave's width; normal's one wave runs every admitted
+//              query (up to --max-queries), N at a time.
 //
 // Nothing in here is allowed to hand the agent a failure it must handle:
 // every LLM stage degrades to a deterministic fallback, and every search
 // failure is recorded as a ledger row rather than aborting the run.
 
-import { loadState, saveStateAtomic } from '../state.mjs';
+import { loadCliState, saveStateAtomic } from '../state.mjs';
 import { dispatch, detectHarnessBudgetMs, detectHarnessName } from '../dispatch.mjs';
 import { effectiveParallelism } from '../ratelimit.mjs';
 import { Frontier, makeNode } from './frontier.mjs';
@@ -176,8 +178,14 @@ export async function runSurfAi(ctx, opts = {}) {
   const deadline = unlimitedTime ? Infinity : startTs + budgetMs * 0.95;
   const remaining = () => (unlimitedTime ? Infinity : Math.max(0, deadline - Date.now()));
 
-  const state = await loadState();
+  // keys.json plus the Brave keys exported in the environment — appended
+  // behind the stored ones, in memory; saveStateAtomic strips them on write.
+  const state = await loadCliState();
   state._inMemory = true; // concurrent dispatches share it; we persist ourselves
+  const braveSection = state.brave || {};
+  if (typeof braveSection._storedKeyCount === 'number') {
+    progress.info(`surf-ai: using ${braveSection.keys.length - braveSection._storedKeyCount} Brave key(s) from the environment after the stored ones (not persisted)`);
+  }
   const envKeys = mergeEnvKeys(state);
   if (envKeys) {
     progress.info(`surf-ai: using ${envKeys} OpenRouter key(s) from the environment (not persisted)`);
@@ -268,7 +276,8 @@ export async function runSurfAi(ctx, opts = {}) {
 
   progress.info(
     `surf-ai plan: ${plan.sub_questions.length} sub-question(s), ${plan.queries.length} seed quer${plan.queries.length === 1 ? 'y' : 'ies'} ` +
-    `· up to ${subAgents} sub-agent(s) per wave, depth ≤ ${maxDepth}`
+    (mode === 'normal' ? `· one wave: up to ${maxQueries} queries, ${subAgents} at a time` : `· up to ${subAgents} sub-agent(s) per wave`) +
+    `, depth ≤ ${maxDepth}`
   );
 
   // ---------------------------------------------------------------- WAVES ---
@@ -308,7 +317,14 @@ export async function runSurfAi(ctx, opts = {}) {
   while (round < maxRounds && frontier.size) {
     round++;
 
-    const wave = frontier.popWave(subAgents, { wave: round });
+    // normal mode has exactly ONE wave, so that wave takes every admitted query
+    // (up to --max-queries) and runs them --sub-agents at a time. Popping only
+    // --sub-agents nodes left the rest of the plan queued forever: a caller that
+    // lowered --sub-agents to spread load across processes silently got one
+    // search where the planner had asked for ten. unlimit keeps the wave width
+    // at --sub-agents, because whatever one wave leaves the next wave takes.
+    const waveWidth = mode === 'normal' ? maxQueries : subAgents;
+    const wave = frontier.popWave(waveWidth, { wave: round });
     if (!wave.length) {
       stopReason = 'the frontier had no admissible queries left';
       break;
@@ -319,7 +335,7 @@ export async function runSurfAi(ctx, opts = {}) {
       : Math.max(5_000, remaining() * SEARCH_OF_REMAINING);
     const depths = wave.map(n => n.depth);
     progress.start(
-      `surf-ai wave ${round}/${maxRounds}: ${wave.length} sub-agent(s) ` +
+      `surf-ai wave ${round}/${maxRounds}: ${wave.length} quer${wave.length === 1 ? 'y' : 'ies'}, ${Math.min(subAgents, wave.length)} at a time ` +
       `· depth ${Math.min(...depths)}-${Math.max(...depths)} · ${frontier.openBranches} open branch(es)`
     );
 

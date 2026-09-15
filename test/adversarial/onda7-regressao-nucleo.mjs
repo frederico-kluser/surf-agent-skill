@@ -26,16 +26,35 @@
 // preload-zero-rede.cjs via NODE_OPTIONS to count sockets/dns and kill the
 // real fetch. SURF_NO_RATE_LIMIT=1 keeps pacing and the ratelimit ledger off.
 //
-// Run:   NODE_OPTIONS="--require /tmp/surf-audit-20260830/test-nucleo/preload-zero-rede.cjs" \
-//        HOME=$(mktemp -d) node test/adversarial/onda7-regressao-nucleo.mjs
+// Run:   node test/adversarial/onda7-regressao-nucleo.mjs
+//        (the parent re-execs itself into the sandbox: throwaway HOME, neutral
+//        cwd, and test/fixtures/preload-zero-rede.cjs via NODE_OPTIONS)
 
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
-import { mkdtempSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SELF = fileURLToPath(import.meta.url);
+const PRELOAD = path.resolve(path.dirname(SELF), '..', 'fixtures', 'preload-zero-rede.cjs');
+
+// ---------------------------------------------------------------- harness ---
+// `npm test` runs every suite with the caller's real HOME, and this file must
+// never see it (H10, below). So the parent re-execs itself inside a throwaway
+// HOME, from a .env-free cwd, with the versioned zero-network preload — the
+// sandbox the audit used to build by hand, now built by the suite itself.
+if (!process.env.SURF_O7_NUCLEO_CHILD) {
+  const home = mkdtempSync(path.join(tmpdir(), 'surf-o7n-'));
+  const cwd = path.join(home, 'cwd');
+  mkdirSync(cwd, { recursive: true });
+  const env = { ...process.env, HOME: home, USERPROFILE: home, SURF_O7_NUCLEO_CHILD: '1' };
+  env.NODE_OPTIONS = [process.env.NODE_OPTIONS, `--require ${JSON.stringify(PRELOAD)}`].filter(Boolean).join(' ');
+  const r = spawnSync(process.execPath, [SELF], { stdio: 'inherit', cwd, env });
+  try { rmSync(home, { recursive: true, force: true }); } catch {}
+  process.exit(r.status === null ? 1 : r.status);
+}
 
 // ------------------------------------------------------- env hygiene (H10) ---
 // Config constants (CONFIG_DIR, CACHE_DIR, ratelimit DISABLED, progress silent,

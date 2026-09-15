@@ -17,6 +17,10 @@ import { fileURLToPath } from 'node:url';
 const SELF = fileURLToPath(import.meta.url);
 
 if (!process.env.SURF_BRAVE_TEST_CHILD) {
+  // An exported key must not reach the child. The CLI and surf-ai use
+  // BRAVE_API_KEY(S) / OPENROUTER_API_KEY(S) behind the stored keys, so a key
+  // sitting in the developer's shell would change what this suite sees.
+  for (const k of ['BRAVE_API_KEY', 'BRAVE_API_KEYS', 'OPENROUTER_API_KEY', 'OPENROUTER_API_KEYS']) delete process.env[k];
   const home = mkdtempSync(path.join(tmpdir(), 'surf-brave-'));
   mkdirSync(path.join(home, '.config', 'surf'), { recursive: true });
   const r = spawnSync(process.execPath, [SELF], {

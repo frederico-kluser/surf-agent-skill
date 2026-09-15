@@ -2,6 +2,41 @@
 
 > **Historical entries (v1.0.0 – v4.1.0)** have been archived to [CHANGELOG-archive.md](CHANGELOG-archive.md).
 
+## Unreleased
+
+### Fixed
+
+- **The CLI honours `BRAVE_API_KEY` / `BRAVE_API_KEYS`.** The gate read
+  `keys.json` and nothing else, while its own error message claimed it had
+  checked the environment and `./.env`, and the `requires` of every skill
+  promised the same — so a CI job or a container with only the variable
+  exported always exited 78. Exported Brave keys now join the ring **behind**
+  the stored keys, in memory only, the way the OpenRouter key always has: an
+  exported key extends a multi-key pool instead of replacing it.
+  `saveStateAtomic()` strips environment keys — and every burn, cooldown and
+  verdict that pointed at them — before any write, so no writer (the gate,
+  dispatch, `search-parallel`, surf-ai) can persist one. `./.env` is still read
+  only in library mode. `gate --json` reports `key_source` and
+  `env_key_count`; `surf doctor` and `keys list` show the environment keys,
+  masked. Since nothing about an exported key is written, its free validation
+  probe runs once per command, and the verdict is reused for the rest of that
+  process.
+- **`surf-search-normal` no longer drops planned queries when `--sub-agents`
+  is low.** Its single wave popped only `--sub-agents` queries from the
+  frontier, so `--sub-agents=1` — what the research skill's budget division
+  hands each sub-agent in a burst of 6 — ran ONE search out of the ten the
+  planner admitted and left the rest queued forever. The normal wave now runs
+  every admitted query (up to `--max-queries`), `--sub-agents` at a time.
+  `unlimit` is unchanged: what one wave leaves, the next wave takes.
+- **`npm test` is reproducible outside the audit sandbox.**
+  `onda7-regressao-superficie` required a zero-network preload that only ever
+  existed in `/tmp`, and `onda7-regressao-nucleo` refused to run with a real
+  `HOME`. The preload now lives in `test/fixtures/preload-zero-rede.cjs`
+  (serving both counter interfaces), and `nucleo` re-execs itself into a
+  throwaway `HOME` like the other suites. Every suite also strips
+  `BRAVE_API_KEY(S)` / `OPENROUTER_API_KEY(S)` from its child's environment,
+  so a key exported on the developer's machine cannot change what a test sees.
+
 ## 8.0.1 — `keys list --json` no longer prints raw API keys
 
 **Security fix.** `surf-research-skill keys list --json` dumped every stored key

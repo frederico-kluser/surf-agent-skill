@@ -44,9 +44,10 @@ The brief (all optional, all worth writing):
 Tuning:
   --max-rounds N      wave cap (default 6, hard cap 50)
   --sub-agents N      simultaneous searches (default 10, max 20; also
-                      --sub-agents=N). ONE budget: it is both the wave width
-                      and the worker-pool width. surf reads your Brave plan's
-                      real requests-per-second from the API's own headers and
+                      --sub-agents=N). In unlimit it is both the wave width
+                      and the worker-pool width: what one wave leaves, the
+                      next wave takes. surf reads your Brave plan's real
+                      requests-per-second from the API's own headers and
                       paces the wave to it, so a number above what the plan
                       allows queues rather than fails.
   --concurrency N     deprecated alias for --sub-agents

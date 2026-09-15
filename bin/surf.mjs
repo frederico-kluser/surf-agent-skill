@@ -21,7 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadState, saveStateAtomic, setValidation, KEYS_FILE, PROVIDERS, SEARCH_PROVIDERS } from '../src/lib/state.mjs';
+import { loadState, loadCliState, envKeysFor, saveStateAtomic, setValidation, KEYS_FILE, PROVIDERS, SEARCH_PROVIDERS } from '../src/lib/state.mjs';
 import { validateKey, formatValidation } from '../src/validators/index.mjs';
 // Namespace import on purpose. SKILLS IS exported now, but a named import of a
 // binding that ever goes away is a link-time SyntaxError — the whole CLI dies,
@@ -325,6 +325,10 @@ async function cmdDoctor({ offline = false } = {}) {
     const note = t.p === 'openrouter' ? '   (surf-ai LLM, not a search provider)' : '   (the search backend)';
     out(`  ${t.p.padEnd(10)} ${status}${note}`);
   }
+  const envBrave = envKeysFor('brave').filter(k => !state.brave.keys.includes(k));
+  if (envBrave.length) {
+    out(`  ${''.padEnd(10)} + ${envBrave.length} Brave key(s) from BRAVE_API_KEY(S) — used after the stored keys, in memory, never written`);
+  }
 
   // A count is not a verdict. The previous doctor happily reported
   // "brave 1 key(s), 1 burned" and exited 0 — the exact state in which every
@@ -348,9 +352,11 @@ async function cmdDoctor({ offline = false } = {}) {
   out(offlineOnly
     ? '  (offline: keys.json only — nothing left this machine)'
     : '  (a cached verdict costs nothing; an unjudged key costs ONE free probe)');
+  // The gate sees what every search sees: keys.json plus env keys, in memory.
+  const gateState = await loadCliState();
   const verdict = offlineOnly
-    ? gateStatus(state, 'brave')
-    : await resolveGate(state, 'brave', { persist: true });
+    ? gateStatus(gateState, 'brave')
+    : await resolveGate(gateState, 'brave', { persist: true });
   if (verdict.verdict === GATE.READY) {
     out(`  ✓ ready — key #${verdict.index} (${verdict.detail})`);
   } else if (offlineOnly && verdict.verdict === GATE.UNVALIDATED) {

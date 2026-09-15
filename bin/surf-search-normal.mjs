@@ -36,14 +36,15 @@ usable instead of generic):
   --brief-file <f.json>  {"question","task","goal","insights","deliverable"}
 
 Tuning:
-  --sub-agents N      simultaneous searches (default 10, max 20; also
-                      --sub-agents=N). ONE budget: it is both the wave width
-                      and the worker-pool width. surf reads your Brave plan's
-                      real requests-per-second from the API's own headers and
+  --sub-agents N      searches running at once (default 10, max 20; also
+                      --sub-agents=N). surf reads your Brave plan's real
+                      requests-per-second from the API's own headers and
                       paces the wave to it, so a number above what the plan
                       allows queues rather than fails.
   --concurrency N     deprecated alias for --sub-agents
-  --max-queries N     frontier admissions per wave (>= --sub-agents)
+  --max-queries N     queries the one wave runs (default 10, max 40, never
+                      below --sub-agents). A lower --sub-agents makes the wave
+                      slower; it does not drop planned queries.
   --max-depth N       how far a branch may descend (default 2, max 6)
   --max N             results per search (1-20). Overrides --search-mode.
   --search-mode <fast|normal|slow>   results per query: 5 / 10 / 20

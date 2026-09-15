@@ -46,7 +46,7 @@ import { fileURLToPath } from 'node:url';
 const SELF = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SELF), '..', '..');
 const BIN = (n) => path.join(ROOT, 'bin', n);
-const PRELOAD = '/tmp/surf-audit-20260830/test-superficie/preload-zero-rede.cjs';
+const PRELOAD = path.join(ROOT, 'test', 'fixtures', 'preload-zero-rede.cjs');
 
 // ------------------------------------------------------------- re-exec ----
 

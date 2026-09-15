@@ -280,12 +280,11 @@ export function parseJsonLoose(text) {
 /**
  * OpenRouter keys found in the environment.
  *
- * The search-provider keys are deliberately file-only (they are read from
- * ~/.config/surf/keys.json and never from env). The LLM key gets one extra
- * source, because `OPENROUTER_API_KEY` is already exported in most developer
- * shells and CI jobs — refusing it would mean surf-ai reports "no usable key"
- * on a machine that plainly has one. Env keys are used in memory only; they
- * are never written to keys.json.
+ * `OPENROUTER_API_KEY` is already exported in most developer shells and CI
+ * jobs — refusing it would mean surf-ai reports "no usable key" on a machine
+ * that plainly has one. Env keys are used in memory only; they are never
+ * written to keys.json. Brave keys follow the same rule (state.mjs
+ * mergeEnvKeysInto / stripEnvKeys): stored keys first, env keys appended.
  */
 export function keysFromEnv(env = process.env) {
   const csv = typeof env.OPENROUTER_API_KEYS === 'string'

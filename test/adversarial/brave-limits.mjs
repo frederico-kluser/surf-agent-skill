@@ -46,6 +46,10 @@ const MODE = process.env.SURF_ADV_MODE || '';
 // under a different policy is a fresh process.
 
 if (!process.env.SURF_ADV_CHILD) {
+  // An exported key must not reach the child. The CLI and surf-ai use
+  // BRAVE_API_KEY(S) / OPENROUTER_API_KEY(S) behind the stored keys, so a key
+  // sitting in the developer's shell would change what this suite sees.
+  for (const k of ['BRAVE_API_KEY', 'BRAVE_API_KEYS', 'OPENROUTER_API_KEY', 'OPENROUTER_API_KEYS']) delete process.env[k];
   const home = mkdtempSync(path.join(tmpdir(), 'surf-adv-'));
   mkdirSync(path.join(home, '.config', 'surf'), { recursive: true });
   mkdirSync(path.join(home, '.cache', 'surf'), { recursive: true });

@@ -94,7 +94,7 @@ plan / design ──▶ surf-plan-agent-skill ──▶ Normal (research-grounde
 | **Skills shipped** | `surf-research-agent-skill` (surf-ai) · `surf-plan-agent-skill` · `surf-search-agent-skill` |
 | **Bins shipped** | `surf`, `surf-search-normal`, `surf-search-unlimit`, `surf-research-skill`, `surf-plan-skill` |
 | **Runtime** | Node ≥ 18. Zero npm deps. |
-| **Storage** | `~/.config/surf/keys.json` (chmod 600) — the only place a key is ever written. Also caches the free validation verdict for 7 days. `OPENROUTER_API_KEY` is accepted from env, in memory. Library mode reads env/`.env` too ([Security](#security)). |
+| **Storage** | `~/.config/surf/keys.json` (chmod 600) — the only place a key is ever written. Also caches the free validation verdict for 7 days. `BRAVE_API_KEY(S)` and `OPENROUTER_API_KEY(S)` are accepted from env, in memory, after the stored keys. Library mode reads `.env` too ([Security](#security)). |
 | **Supported agents** | Claude Code · GitHub Copilot CLI · Pi Coding Agent · OpenCode · Codex CLI |
 | **Spec** | [Anthropic Agent Skills](https://docs.claude.com/en/docs/agents-and-tools/agent-skills) |
 
@@ -253,7 +253,8 @@ console.log(result.diagnostics.degraded); // [] when every stage ran on the LLM
 ```
 
 `runSurfAi` reads keys from `~/.config/surf/keys.json` and picks up
-`OPENROUTER_API_KEY` from the environment. It never throws for research
+`BRAVE_API_KEY(S)` and `OPENROUTER_API_KEY(S)` from the environment (in memory,
+after the stored keys). It never throws for research
 failures — inspect `result.diagnostics.degraded` and `result.stats.sources`.
 
 Library works server-side (Node / Next.js API routes / Express). Not for
@@ -1053,13 +1054,15 @@ export `SURF_ALLOW_EXPENSIVE=1` for the session.
   placeholders.
 - **Keys are only ever persisted to `~/.config/surf/keys.json`** (chmod 600).
   Nothing else on disk ever holds one.
-- **CLI mode** reads the Brave key from that file and from nowhere else — not
-  from the environment, not from `.env`. The
-  **OpenRouter** key is the one exception: `OPENROUTER_API_KEY` /
-  `OPENROUTER_API_KEYS` are also accepted so surf-ai works on machines that
-  already export one. Env-sourced keys are used **in memory only** and are
-  stripped back out before any write to `keys.json` (`snapshotForPersist`,
-  `src/lib/ai/openrouter.mjs`).
+- **CLI mode** reads keys from that file first and then from the environment:
+  `BRAVE_API_KEY` / `BRAVE_API_KEYS` and `OPENROUTER_API_KEY` /
+  `OPENROUTER_API_KEYS` are appended **behind** the stored keys. An exported key
+  extends the rotation instead of replacing it, and a machine with no
+  `keys.json` (a CI job, a container) works from the environment alone.
+  Env-sourced keys are used **in memory only**: `saveStateAtomic()` strips them,
+  with every burn, cooldown and verdict that pointed at them, before any write
+  to `keys.json` (`stripEnvKeys`, `src/lib/state.mjs`). The CLI never reads
+  `.env`.
 - **Library mode is different by design.** `discoverKeys()` (`src/env.mjs`),
   which every `import { search, … } from 'surf-agent-skill'` call goes through,
   resolves keys for *all* providers in this order: explicit options →

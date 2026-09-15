@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="plannotator-theme" content="host">
+<title>Os 3 problemas sérios do surf-agent-skill 8.0.1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235537eb'/%3E%3Cpath d='M32 13 55 51H9Z' fill='none' stroke='%23ffffff' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M32 27v11' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='45' r='3' fill='%23ffffff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============ PLANNOTATOR TOKENS ============ */
+  :root {
+    --background: oklch(0.97 0.005 260);
+    --foreground: oklch(0.18 0.02 260);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.02 260);
+    --muted: oklch(0.92 0.01 260);
+    --muted-foreground: oklch(0.40 0.02 260);
+    --primary: oklch(0.50 0.25 280);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.50 0.18 180);
+    --accent: oklch(0.60 0.22 50);
+    --accent-foreground: oklch(0.18 0.02 260);
+    --destructive: oklch(0.50 0.25 25);
+    --success: oklch(0.45 0.20 150);
+    --warning: oklch(0.55 0.18 85);
+    --border: oklch(0.88 0.01 260);
+    --code-bg: oklch(0.92 0.01 260);
+    --ring: oklch(0.50 0.25 280);
+    --radius: 0.625rem;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.15 0.02 260);
+      --foreground: oklch(0.90 0.01 260);
+      --card: oklch(0.22 0.02 260);
+      --card-foreground: oklch(0.90 0.01 260);
+      --muted: oklch(0.26 0.02 260);
+      --muted-foreground: oklch(0.72 0.02 260);
+      --primary: oklch(0.75 0.18 280);
+      --primary-foreground: oklch(0.15 0.02 260);
+      --accent: oklch(0.70 0.20 60);
+      --border: oklch(0.35 0.02 260);
+      --code-bg: oklch(0.26 0.02 260);
+      --destructive: oklch(0.65 0.20 25);
+      --success: oklch(0.72 0.17 150);
+      --warning: oklch(0.75 0.15 85);
+      color-scheme: dark;
+    }
+  }
+
+  /* ============ BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.65;
+    padding: 40px;
+    overflow-wrap: break-word;
+  }
+  a { color: var(--primary); text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+  }
+  dfn {
+    font-style: normal;
+    font-weight: 600;
+    text-decoration: underline dotted color-mix(in oklab, var(--primary) 60%, transparent);
+    text-underline-offset: 3px;
+  }
+  p, li { max-width: 68ch; }
+  strong { font-weight: 600; }
+
+  /* ============ LAYOUT + NAV ============ */
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 0 48px;
+  }
+  .main { min-width: 0; }
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    padding: 10px 0;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+  }
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    color: var(--muted-foreground);
+    padding-bottom: 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc a {
+    display: block;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-left: 2px solid transparent;
+    border-radius: 0 6px 6px 0;
+  }
+  .toc a:hover { color: var(--foreground); background: var(--muted); }
+  .toc a.active { color: var(--foreground); border-left-color: var(--primary); font-weight: 500; }
+
+  /* ============ HERO ============ */
+  .hero { padding: 8px 0 36px; border-bottom: 1px solid var(--border); }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(30px, 3.6vw, 44px);
+    line-height: 1.12;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    max-width: 24ch;
+    text-wrap: balance;
+    margin-bottom: 26px;
+  }
+  .answer {
+    background: color-mix(in oklab, var(--primary) 5%, var(--card));
+    border: 1.5px solid color-mix(in oklab, var(--primary) 55%, var(--border));
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    box-shadow: 0 4px 24px color-mix(in oklab, var(--primary) 10%, transparent);
+    max-width: 78ch;
+  }
+  .answer p { font-size: 18px; line-height: 1.6; max-width: none; }
+  .ve-label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    margin-bottom: 8px;
+  }
+
+  /* ============ SECTIONS ============ */
+  section.block { padding: 48px 0 8px; scroll-margin-top: 20px; }
+  section.block + section.block { border-top: 1px solid var(--border); }
+  h2 {
+    font-family: var(--font-display);
+    font-size: clamp(24px, 2.6vw, 32px);
+    line-height: 1.2;
+    font-weight: 700;
+    text-wrap: balance;
+    margin-bottom: 14px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 34px 0 10px;
+    text-wrap: balance;
+  }
+  .block > p, .block > ul, .block > .table-wrap, .block > .formula, .block > .code-block,
+  .block > .signal, .block > .pretrain, .block > figure, .block > details { margin-bottom: 16px; }
+  .block ul { padding-left: 1.4em; display: grid; gap: 6px; }
+  .intro { font-size: 17px; }
+
+  /* ============ OVERVIEW TABLE / DATA TABLES ============ */
+  .table-wrap {
+    overflow-x: auto;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 640px; }
+  th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    padding: 12px 14px;
+    border-bottom: 1.5px solid var(--border);
+    white-space: nowrap;
+  }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.is-this td { background: color-mix(in oklab, var(--destructive) 7%, transparent); }
+  .sev {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .sev--high { color: var(--destructive); background: color-mix(in oklab, var(--destructive) 13%, transparent); }
+
+  /* ============ SIGNAL + PRETRAIN + FORMULA ============ */
+  .signal {
+    border: 1.5px solid color-mix(in oklab, var(--destructive) 50%, var(--border));
+    background: color-mix(in oklab, var(--destructive) 6%, var(--card));
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    max-width: 78ch;
+  }
+  .signal .ve-label { color: var(--destructive); margin-bottom: 4px; }
+  .signal p { max-width: none; }
+  .pretrain {
+    background: var(--muted);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    max-width: 78ch;
+  }
+  .pretrain p { max-width: none; }
+  .formula {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    background: var(--card);
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    width: fit-content;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .reading { font-weight: 600; }
+
+  /* ============ CODE ============ */
+  .code-block {
+    background: var(--code-bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 10px 0 16px;
+  }
+  .code-block__file {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted-foreground);
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in oklab, var(--card) 45%, var(--code-bg));
+  }
+  .code-block pre {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--foreground);
+    padding: 12px 14px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .code-block .cm { color: var(--muted-foreground); font-style: italic; }
+  .code-block .hl { color: var(--destructive); font-weight: 600; }
+
+  /* ============ COLLAPSIBLE ============ */
+  details.collapsible {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+    max-width: 100%;
+  }
+  details.collapsible summary {
+    padding: 12px 18px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  details.collapsible summary::-webkit-details-marker { display: none; }
+  details.collapsible summary::before {
+    content: '▸';
+    font-size: 11px;
+    color: var(--muted-foreground);
+    transition: transform 0.15s ease;
+  }
+  details.collapsible[open] summary::before { transform: rotate(90deg); }
+  details.collapsible summary:hover { background: var(--muted); }
+  .collapsible__body { padding: 6px 18px 12px; border-top: 1px solid var(--border); }
+  .collapsible__body > p { margin: 10px 0 4px; font-size: 14px; color: var(--muted-foreground); }
+
+  /* ============ FIGURES + MERMAID SHELL ============ */
+  figure { margin: 20px 0 16px; }
+  figcaption {
+    font-size: 14.5px;
+    color: var(--muted-foreground);
+    margin-top: 10px;
+    max-width: 78ch;
+  }
+  figcaption b { color: var(--foreground); font-weight: 600; }
+  .diagram-shell { position: relative; }
+  .diagram-shell__hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted-foreground);
+    margin-bottom: 8px;
+  }
+  .mermaid-wrap {
+    position: relative;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow: hidden;
+    min-height: 380px;
+    cursor: grab;
+  }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+  .zoom-controls {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    z-index: 10;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .zoom-controls button {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .zoom-controls button:hover { background: var(--muted); color: var(--foreground); }
+  .zoom-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted-foreground);
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+  .mermaid-canvas { position: absolute; top: 0; left: 0; }
+  .mermaid .edgeLabel, .mermaid .edgeLabel p, .mermaid .edgeLabel span {
+    color: var(--foreground) !important;
+    background-color: var(--card) !important;
+  }
+  .mermaid .labelBkg { background-color: var(--card) !important; }
+  .mermaid .edgeLabel rect { fill: var(--card) !important; }
+  .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon, .mermaid .node path { stroke-width: 1.5px; }
+
+  /* ============ FOOTER ============ */
+  .foot { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 14px; color: var(--muted-foreground); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1000px) {
+    body { padding: 0 20px 40px; }
+    .wrap { grid-template-columns: 1fr; }
+    .toc {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      max-height: none;
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+      margin: 0 -20px;
+      padding: 8px 20px;
+    }
+    .toc-title { display: none; }
+    .toc a { white-space: nowrap; flex-shrink: 0; border-left: none; border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; }
+    .toc a.active { border-bottom-color: var(--primary); }
+    .hero { padding-top: 24px; }
+    section.block { scroll-margin-top: 56px; }
+  }
+  @media (max-width: 560px) {
+    .answer { padding: 18px; }
+    .answer p { font-size: 16.5px; }
+    .mermaid-wrap { min-height: 320px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="toc" id="toc" aria-label="Seções">
+    <div class="toc-title">Seções</div>
+    <a href="#resposta">Resposta</a>
+    <a href="#p1">1 · Chave na variável</a>
+    <a href="#p2">2 · Orçamento repartido</a>
+    <a href="#p3">3 · Testes vermelhos</a>
+    <a href="#validade">Validade</a>
+  </nav>
+
+  <div class="main">
+
+    <header class="hero" id="resposta">
+      <p class="eyebrow">Explicação · surf-agent-skill 8.0.1 · commit 0dcf6ad · medido em 15 set 2026</p>
+      <h1>Quais são os 3 problemas sérios do surf-agent-skill 8.0.1, e por que eles acontecem?</h1>
+      <div class="answer">
+        <span class="ve-label">Resposta curta</span>
+        <p>Os comandos de terminal procuram a chave do Brave só no arquivo de chaves, embora a mensagem de erro diga que também olharam a <dfn data-term="variável de ambiente">variável de ambiente</dfn> (valor definido no shell, como <code>export BRAVE_API_KEY=…</code>, que o programa lê ao iniciar). A skill de pesquisa reparte o orçamento de um jeito que cada busca faz uma única consulta ao Brave. E o comando de testes depende de um ambiente de auditoria que não está no repositório — o código em si passa.</p>
+      </div>
+    </header>
+
+    <section class="block" aria-labelledby="h-visao">
+      <h2 id="h-visao">Os três, lado a lado</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>O problema</th><th>Quem sente</th><th>Gravidade</th><th>Tamanho da correção</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td>Os comandos ignoram a chave da variável de ambiente</td>
+              <td>Quem roda sem o arquivo de chaves: uma máquina nova ou um servidor que roda testes automaticamente</td>
+              <td><span class="sev sev--high">Alta</span></td>
+              <td>Pequena, se for só mensagem e docs; média, se o código passar a ler a variável</td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td>Repartir o orçamento corta consultas, não só tempo</td>
+              <td>Toda pesquisa feita pela skill de pesquisa</td>
+              <td><span class="sev sev--high">Alta</span></td>
+              <td>Média: regra da skill e comportamento do comando de busca</td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td>Os testes ficam vermelhos fora do ambiente da auditoria</td>
+              <td>Quem valida uma mudança antes de juntá-la à main — você incluso</td>
+              <td><span class="sev sev--high">Alta</span></td>
+              <td>Pequena: versionar um arquivo e ajustar uma suíte</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== PROBLEMA 1 ===================== -->
+    <section class="block" id="p1" aria-labelledby="h-p1">
+      <h2 id="h-p1">1 · Os comandos não leem a chave que a mensagem diz ler</h2>
+      <p class="intro">A <dfn data-term="CLI">CLI</dfn> (os comandos de terminal do pacote: <code>surf-search-normal</code>, <code>surf-research-skill</code>, <code>surf-plan-skill</code>) decide se pode buscar olhando um único arquivo: o <dfn data-term="keys.json">keys.json</dfn> (<code>~/.config/surf/keys.json</code>, onde a CLI guarda as chaves e o resultado da validação delas).</p>
+
+      <h3>O que você vê</h3>
+      <p>Numa pasta pessoal vazia, só com <code>BRAVE_API_KEY</code> exportada, o <dfn data-term="portão">portão</dfn> (checagem que roda antes de qualquer busca e barra o comando se não houver chave Brave utilizável) reprova com <dfn data-term="exit 78">exit 78</dfn> (o código de saída de “configuração quebrada, sem chave válida”; repetir o comando não resolve). A mensagem diz ter conferido três lugares: o keys.json, a variável e o <dfn data-term=".env">.env</dfn> (arquivo de texto na pasta atual, com linhas <code>NOME=valor</code>, que algumas ferramentas carregam sozinhas).</p>
+      <div class="code-block">
+        <div class="code-block__file">terminal · HOME vazio, BRAVE_API_KEY exportada</div>
+<pre>$ HOME=$(mktemp -d) surf-research-skill gate
+❌ Error [BraveKeyMissing]: surf requires a valid Brave Search key and could not find one.
+   Detail: no key configured
+<span class="hl">Checked: /var/tmp/…/tmp.XXXX/.config/surf/keys.json, $BRAVE_API_KEY / $BRAVE_API_KEYS, ./.env</span>
+Fix:      surf-research-skill keys add --provider brave &lt;key&gt;</pre>
+      </div>
+      <p>O comando não conferiu os dois últimos. Repeti o teste passando a variável na própria linha do comando, e o resultado foi o mesmo: <code>"key_count": 0</code>.</p>
+
+      <h3>Por que acontece</h3>
+      <div class="pretrain">
+        <span class="ve-label">Antes da figura</span>
+        <p>Duas peças aparecem no desenho. O <dfn data-term="preflight">preflight</dfn> é a função <code>preflightOrExit()</code>, que todo comando chama antes de trabalhar: carrega as chaves e aplica o portão. O <dfn data-term="modo biblioteca">modo biblioteca</dfn> é usar o pacote dentro de um programa Node, com <code>import</code> e <code>search()</code>, sem passar pelos comandos de terminal.</p>
+      </div>
+      <figure>
+        <section class="diagram-shell" role="img" aria-label="Figura 1: na CLI, a chave só é procurada no keys.json; a leitura da variável de ambiente existe, mas só o modo biblioteca a usa.">
+          <p class="diagram-shell__hint">Ctrl/Cmd + roda para ampliar · arraste para mover · duplo clique para ajustar</p>
+          <div class="mermaid-wrap">
+            <div class="zoom-controls">
+              <button type="button" data-action="zoom-in" title="Ampliar">+</button>
+              <button type="button" data-action="zoom-out" title="Reduzir">&minus;</button>
+              <button type="button" data-action="zoom-fit" title="Ajustar">&#8634;</button>
+              <button type="button" data-action="zoom-one" title="Tamanho real">1:1</button>
+              <button type="button" data-action="zoom-expand" title="Abrir em tamanho cheio">&#x26F6;</button>
+              <span class="zoom-label">Carregando…</span>
+            </div>
+            <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+          </div>
+          <script type="text/plain" class="diagram-source">
+flowchart TD
+  U["Você exporta BRAVE_API_KEY"] -->|"roda o comando"| BIN["Comando da CLI<br/>surf-search-normal · gate · search"]
+  BIN -->|"chama antes de tudo"| PF["preflightOrExit()<br/>preflight.mjs:372"]
+  PF -->|"carrega as chaves"| LS["loadState()<br/>preflight.mjs:375"]
+  LS -->|"lê só este arquivo"| KJ[("keys.json")]
+  KJ -->|"sem chave: reprova"| G78["exit 78<br/>mensagem diz que checou env e .env"]
+  LIB["Modo biblioteca<br/>search() em api/search.mjs:94"] -->|"descobre chaves"| DK["discoverKeys()<br/>env.mjs:235"]
+  DK -->|"lê env e .env"| ENV["variável de ambiente<br/>e ./.env"]
+  DK -.->|"se env e .env vazios"| KJ
+  PF -.->|"nunca chama"| DK
+  classDef crit fill:#9f1a12,stroke:#f97066,stroke-width:2px
+  class G78 crit
+  linkStyle 8 stroke:#dc2626,stroke-width:2.5px,stroke-dasharray:6 4
+          </script>
+        </section>
+        <figcaption><b>Figura 1 —</b> Na CLI, a chave só é procurada no keys.json: a leitura da variável de ambiente existe, mas só o modo biblioteca a usa.</figcaption>
+      </figure>
+      <div class="signal">
+        <span class="ve-label">Ponto crítico</span>
+        <p><strong>A seta que falta é a de <code>preflightOrExit()</code> para <code>discoverKeys()</code>:</strong> é por ela que a variável de ambiente deveria entrar, e ela não existe. A função que sabe ler a variável e o .env está pronta em <code>src/env.mjs</code>, mas só o modo biblioteca a chama.</p>
+      </div>
+
+      <h3>Por que ninguém percebeu</h3>
+      <p>Não é descuido de código: foi uma decisão da v7. O <code>CHANGELOG.md:284-287</code> registra que a chave do OpenRouter passou a ser lida da variável “used in memory only”, e que “Search-provider keys remain file-only”. A decisão ficou no código. Três lugares continuam prometendo o contrário:</p>
+      <ul>
+        <li>a própria mensagem do portão, montada em <code>src/lib/preflight.mjs:293</code>;</li>
+        <li><code>references/surf-ai-cli.md:394</code> e <code>:465-466</code>, a referência que os agentes leem;</li>
+        <li>o campo <code>requires</code> das skills de busca (<code>skills/surf-search-agent-skill/SKILL.md:32</code>) e de plano (<code>skills/surf-plan-agent-skill/SKILL.md:27</code>).</li>
+      </ul>
+      <p>Na sua máquina o defeito fica escondido: o seu keys.json tem 4 chaves, então o portão nunca precisa da variável.</p>
+
+      <h3>Quem é afetado</h3>
+      <p>Qualquer execução sem keys.json: uma máquina nova seguindo as docs, um ambiente descartável, um servidor que roda testes automaticamente. O efeito é pior que um erro comum, porque a mensagem manda a pessoa conferir justamente a variável que ela já definiu.</p>
+
+      <h3>O que decidir</h3>
+      <p>A escolha é sua. As duas saídas corrigem a mensagem; a diferença é se o código muda.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Opção</th><th>O que muda</th><th>Versão</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>A</strong> · a CLI passa a ler a variável</td>
+              <td>A chave vale só <dfn data-term="em memória">em memória</dfn> (durante aquela execução, nunca gravada em disco); a variável vence o keys.json; o .env continua fora. É o que gh, aws e stripe fazem. O plano completo desta opção já está escrito.</td>
+              <td class="num">8.1.0</td>
+            </tr>
+            <tr>
+              <td><strong>B</strong> · manter a regra da v7</td>
+              <td>A mensagem e as docs passam a dizer “só keys.json”; a variável e o .env ficam para o modo biblioteca.</td>
+              <td class="num">8.0.2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <details class="collapsible">
+        <summary>Ver o código envolvido</summary>
+        <div class="collapsible__body">
+          <p>O portão: carrega só o keys.json e reprova.</p>
+          <div class="code-block">
+            <div class="code-block__file">src/lib/preflight.mjs:372-391</div>
+<pre>export async function preflightOrExit({ allowLive = true } = {}) {
+  let state;
+  try {
+    <span class="hl">state = await loadState();</span>
+  } catch (e) {
+    process.stderr.write(`❌ Error [BraveKeyMissing]: could not read ${KEYS_FILE}: ${e.message}\n`);
+    process.exit(EXIT_CONFIG);
+  }
+  try {
+    await assertProviderReady(state, SEARCH_PROVIDER, { allowLive });
+    return state;
+  } catch (e) {
+    if (e instanceof GateError) {
+      process.stderr.write(e.message + '\n');
+      process.exit(EXIT_CONFIG);
+    }
+    throw e;
+  }
+}</pre>
+          </div>
+          <p>A mensagem, que lista fontes que o portão não lê.</p>
+          <div class="code-block">
+            <div class="code-block__file">src/lib/preflight.mjs:292-297</div>
+<pre>    [GATE.MISSING]: [
+      <span class="hl">`Checked: ${KEYS_FILE}, $${envVar} / $${envVar}S, ./.env`,</span>
+      `Fix:      surf-research-skill keys add --provider ${provider} &lt;key&gt;`,
+      `          (or: surf   — the interactive setup)`,
+      signup ? `Get a key: ${signup}` : '',
+    ],</pre>
+          </div>
+          <p>A descoberta em quatro níveis, pronta e sem uso na CLI.</p>
+          <div class="code-block">
+            <div class="code-block__file">src/env.mjs (discoverKeys)</div>
+<pre>    explicit[p] = sanitizeKeys(explicitFor(opts, p), p, `opts.${p}Key(s)`);   // Level 1
+    env[p] = sanitizeKeys(readFromObject(process.env, base), p, 'process.env'); // Level 2
+    dotenv[p] = opts.skipDotenv                                                // Level 3
+      ? []
+      : sanitizeKeys(readFromObject(parsedDotenv, base), p, '.env');
+  <span class="cm">// Level 4: ~/.config/surf/keys.json — consulted per provider, and only when
+  // levels 1-3 produced nothing for that provider.</span></pre>
+          </div>
+          <p>Quem importa essa descoberta: só o modo biblioteca.</p>
+          <div class="code-block">
+            <div class="code-block__file">grep</div>
+<pre>src/index.mjs:39            export { discoverKeys, buildInMemoryState } from './env.mjs';
+src/lib/api/search.mjs:26   import { buildInMemoryState } from '../../env.mjs';</pre>
+          </div>
+          <p>A decisão da v7.</p>
+          <div class="code-block">
+            <div class="code-block__file">CHANGELOG.md:284-287</div>
+<pre>- **`OPENROUTER_API_KEY` / `OPENROUTER_API_KEYS` are read from the
+  environment** — used in memory only and stripped before any write to
+  `keys.json`, so an exported key never gets silently persisted. <span class="hl">Search-provider
+  keys remain file-only.</span></pre>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ===================== PROBLEMA 2 ===================== -->
+    <section class="block" id="p2" aria-labelledby="h-p2">
+      <h2 id="h-p2">2 · Repartir o orçamento corta consultas, não só tempo</h2>
+
+      <h3>A regra e a intenção</h3>
+      <p>A skill de pesquisa não busca sozinha: ela dispara uma <dfn data-term="rajada">rajada</dfn> (grupo de agentes auxiliares lançados de uma vez, um por dúvida). Cada agente da rajada é um <dfn data-term="T3">sub-agente T3</dfn> (agente que recebe uma única dúvida e roda o <code>surf-search-normal</code> para respondê-la).</p>
+      <p>Os sub-agentes simultâneos têm um teto, o <dfn data-term="N">N</dfn> (padrão 10; neste teste, 8). E a skill manda cada sub-agente passar à CLI a flag <dfn data-term="--sub-agents"><code>--sub-agents</code></dfn> (quantas buscas rodam juntas e, como a figura vai mostrar, quantas rodam ao todo) com este valor, onde <code>floor</code> arredonda para baixo:</p>
+      <div class="formula">--sub-agents = max(1, floor(N ÷ tamanho da rajada))</div>
+      <p>A intenção é boa. Sem a divisão, 10 sub-agentes pedindo 10 buscas cada somariam 100 <dfn data-term="query">queries</dfn> (consultas enviadas ao Brave; cada uma devolve uma lista de resultados) de uma vez. O <dfn data-term="limitador de taxa">limitador de taxa</dfn> (a CLI espaça as requisições para caber no limite do plano Brave) enfileiraria tudo: a 1 <dfn data-term="req/s">req/s</dfn> (requisição por segundo), seriam uns 100 segundos de espera. A skill resume a troca assim: dividir compra tempo de relógio, não evita um erro.</p>
+
+      <h3>O mecanismo</h3>
+      <div class="pretrain">
+        <span class="ve-label">Antes da figura</span>
+        <p>O <dfn data-term="modo normal">modo normal</dfn> é o <code>surf-search-normal</code>: planeja, faz uma única <dfn data-term="onda">onda</dfn> (leva de buscas executadas em paralelo) e escreve a resposta. Quem planeja é o <dfn data-term="LLM">LLM</dfn> (o modelo de linguagem que escolhe as buscas e redige a síntese). Ele põe as queries na <dfn data-term="fronteira">fronteira</dfn> (fila de queries esperando a vez de rodar), até o limite de <dfn data-term="--max-queries"><code>--max-queries</code></dfn> (quantas queries podem entrar na fila por onda; padrão 10). Se a resposta sai fraca, o sub-agente deveria seguir a <dfn data-term="escada de falha">escada de falha</dfn> (tentar só mais uma vez, menor, e depois declarar a dúvida bloqueada).</p>
+      </div>
+      <figure>
+        <section class="diagram-shell" role="img" aria-label="Figura 2: com N igual a 8 e 6 dúvidas, cada sub-agente recebe sub-agents igual a 1, e no modo normal isso deixa rodar só 1 das queries planejadas.">
+          <p class="diagram-shell__hint">Ctrl/Cmd + roda para ampliar · arraste para mover · duplo clique para ajustar</p>
+          <div class="mermaid-wrap">
+            <div class="zoom-controls">
+              <button type="button" data-action="zoom-in" title="Ampliar">+</button>
+              <button type="button" data-action="zoom-out" title="Reduzir">&minus;</button>
+              <button type="button" data-action="zoom-fit" title="Ajustar">&#8634;</button>
+              <button type="button" data-action="zoom-one" title="Tamanho real">1:1</button>
+              <button type="button" data-action="zoom-expand" title="Abrir em tamanho cheio">&#x26F6;</button>
+              <span class="zoom-label">Carregando…</span>
+            </div>
+            <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+          </div>
+          <script type="text/plain" class="diagram-source">
+flowchart TD
+  DIV["Skill de pesquisa<br/>floor(8 ÷ 6) = 1"] -->|"cada sub-agente T3 recebe"| CLI["surf-search-normal<br/>--sub-agents=1"]
+  CLI -->|"LLM planeja até 10 queries"| FR["Fronteira<br/>queries esperando"]
+  FR -->|"modo normal: 1 onda"| POP["popWave(largura = 1)<br/>orchestrator.mjs:311"]
+  POP -->|"tira só a largura"| RUN["1 query vai ao Brave"]
+  POP -->|"o resto fica"| LEFT["demais queries<br/>nunca rodam"]
+  RUN -->|"síntese rala"| RERUN["sub-agente repete a CLI<br/>3 a 5 vezes"]
+  RERUN -.->|"fora da escada de falha"| CLI
+  classDef crit fill:#9f1a12,stroke:#f97066,stroke-width:2px
+  class POP,LEFT crit
+          </script>
+        </section>
+        <figcaption><b>Figura 2 —</b> Com N = 8 e 6 dúvidas, cada sub-agente recebe <code>--sub-agents=1</code>, e no modo normal isso deixa rodar só 1 das queries planejadas.</figcaption>
+      </figure>
+      <div class="signal">
+        <span class="ve-label">Ponto crítico</span>
+        <p><strong>O ponto decisivo é <code>popWave</code>: a largura da onda é o próprio <code>--sub-agents</code>.</strong> Como o modo normal tem uma onda só, dividir o teto não enfileira as buscas que sobram. Elimina.</p>
+      </div>
+
+      <h3>Exemplo resolvido</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Cenário</th><th>N</th><th>Dúvidas na rajada</th><th>--sub-agents por dúvida</th><th>Queries por dúvida</th><th>Queries no total</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Sem dividir (o que a regra evita)</td><td class="num">10</td><td class="num">5</td><td class="num">10</td><td class="num">10</td><td class="num">50</td></tr>
+            <tr><td>Padrão da skill</td><td class="num">10</td><td class="num">5</td><td class="num">2</td><td class="num">2</td><td class="num">10</td></tr>
+            <tr><td>Rajada cheia</td><td class="num">10</td><td class="num">10</td><td class="num">1</td><td class="num">1</td><td class="num">10</td></tr>
+            <tr class="is-this"><td>Este teste</td><td class="num">8</td><td class="num">6</td><td class="num">1</td><td class="num">1</td><td class="num">6 previstas · 22 reais</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="reading">Leitura: dividir por 5 não deixou as buscas 5 vezes mais lentas. Deixou 5 vezes menos buscas.</p>
+
+      <h3>O que o teste mostrou</h3>
+      <ul>
+        <li>No arquivo <code>D11.json</code>, gerado pela própria CLI: <code>ledger.stats.queries = 1</code>, e mais 3 queries paradas na fronteira.</li>
+        <li>O sub-agente da dúvida D8 relatou 9 de 10 queries planejadas que nunca rodaram.</li>
+        <li>Para conseguir responder, os sub-agentes rodaram a CLI de 3 a 5 vezes cada, quebrando a escada de falha. Por isso as 6 queries previstas viraram 22 requisições reais.</li>
+        <li>Cada repetição começa com uma nova chamada de planejamento ao LLM, que levou de 84 a 115 segundos.</li>
+      </ul>
+
+      <h3>Por que importa</h3>
+      <p>O efeito sai ao contrário do objetivo: menos cobertura por dúvida, mais tempo total e sub-agentes que aprendem a desobedecer a skill para conseguir responder.</p>
+
+      <h3>Caminhos de correção</h3>
+      <p>Sugestões de ofício, não pesquisadas:</p>
+      <ul>
+        <li>Separar a largura da onda da concorrência: o sub-agente pede as 10 queries, e só 1 ou 2 rodam por vez.</li>
+        <li>Um piso para <code>--sub-agents</code> no modo normal, aceitando a fila.</li>
+        <li>Aplicar a divisão só ao <code>surf-search-unlimit</code>, que faz várias ondas.</li>
+      </ul>
+      <p>Relacionado e já conhecido: o BUG-08, em que, com <code>--sub-agents 1</code>, a reserva de verificação ocupa a onda inteira.</p>
+
+      <details class="collapsible">
+        <summary>Ver o código e os números</summary>
+        <div class="collapsible__body">
+          <p>A regra, no template do sub-agente (em inglês, como no repositório).</p>
+          <div class="code-block">
+            <div class="code-block__file">references/burst-templates.md:235-242</div>
+<pre>`{{SUB_AGENTS_EACH}}` is `max(1, floor(N / &lt;burst size&gt;))`, where N is the
+orchestrator's `sub-agents` ceiling (default 10). The two levels ADD; without
+the flag they would MULTIPLY, and a burst of 5 would ASK for 50 requests on a
+Brave plan that may serve one per second. They would not arrive at once:
+while the rate limiter is armed it is cross-process — every sub-agent is a
+separate process sharing one ledger — so the excess is QUEUED, not concurrent.
+<span class="hl">What you buy by dividing the budget is wall-clock, not a saved error</span>: an
+undivided fan-out leaves the whole burst waiting for the queue to drain.</pre>
+          </div>
+          <p>O modo normal: uma onda, e a largura dela é <code>subAgents</code>.</p>
+          <div class="code-block">
+            <div class="code-block__file">src/lib/ai/orchestrator.mjs:67, :140-146, :311</div>
+<pre>  normal:  { maxRounds: 1, maxQueries: 10, subAgents: 10, max: 5, maxDepth: 2 },   <span class="cm">// :67</span>
+
+  const subAgents = clamp(knob(opts.subAgents ?? opts.concurrency, d.subAgents), 1, MAX_SUB_AGENTS);
+  <span class="cm">// The wave can never be wider than the query budget, so the query budget must
+  // not be the thing that silently shrinks a requested fan-out.</span>
+  const maxQueries = Math.max(
+    clamp(knob(opts.maxQueries, d.maxQueries), 1, 40),
+    subAgents,
+  );                                                                              <span class="cm">// :140-146</span>
+
+    <span class="hl">const wave = frontier.popWave(subAgents, { wave: round });</span>                    <span class="cm">// :311</span></pre>
+          </div>
+          <p>O que a CLI registrou na execução da dúvida D11 (a nova tentativa, com <code>--max-queries=4</code>).</p>
+          <div class="code-block">
+            <div class="code-block__file">handoffs/D11.json (trecho)</div>
+<pre>"ledger":      { "stats": { <span class="hl">"queries": 1</span>, "succeeded": 1, "failed": 0, "sources": 5, "credits": 1 } },
+"frontier":    { <span class="hl">"pending": 3</span>, "pending_queries": [
+                 "Brave Search API \"Retry-After\" rate limit",
+                 "Brave Search API \"X-RateLimit-Policy\" \"per second\" \"monthly\"",
+                 "Brave Search API rate limit headers 2026 example X-RateLimit-Limit X-RateLimit-Remaining" ] },
+"diagnostics": { "mode": "normal", "subAgents": 1, "maxRounds": 1, "maxQueries": 4 }</pre>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ===================== PROBLEMA 3 ===================== -->
+    <section class="block" id="p3" aria-labelledby="h-p3">
+      <h2 id="h-p3">3 · Os testes ficam vermelhos fora do ambiente da auditoria</h2>
+
+      <h3>O que você vê</h3>
+      <p>O <dfn data-term="npm test">npm test</dfn> (o comando que roda todos os testes do projeto, em sequência) termina em 27 segundos com <dfn data-term="GATE RED">GATE RED</dfn> (a linha final quando pelo menos uma suíte terminou com erro). Oito suítes passam. Duas <dfn data-term="suíte adversarial">suítes adversariais</dfn> (arquivos em <code>test/adversarial/</code> que provam defeitos e correções com asserções) param na primeira linha.</p>
+      <p>Elas exigem coisas que o comando não providencia. Uma só aceita rodar num <dfn data-term="sandbox">sandbox</dfn> (ambiente descartável onde o teste não toca nada real), com um <dfn data-term="HOME temporário">HOME temporário</dfn> (pasta pessoal falsa, criada com <code>mktemp -d</code>, longe do seu <code>~/.config</code>). A outra quer um <dfn data-term="preload">preload</dfn> (arquivo <code>.cjs</code> carregado antes do teste via <code>NODE_OPTIONS=--require</code>, que bloqueia e conta acessos à rede). A mensagem da primeira cita a <dfn data-term="H10">H10</dfn> (armadilha registrada na auditoria: com o HOME real, o teste gravaria nas suas chaves de verdade).</p>
+      <div class="code-block">
+        <div class="code-block__file">npm test · final da saída</div>
+<pre>== ./test/adversarial/onda7-regressao-nucleo.mjs
+<span class="hl">REFUSING TO RUN — HOME=/home/ondokai is not under /var/tmp/user-1000 (H10 sandbox seal)</span>
+
+== ./test/adversarial/onda7-regressao-superficie.mjs
+<span class="hl">PRELOAD MISSING: /tmp/surf-audit-20260830/test-superficie/preload-zero-rede.cjs — create it before running this suite</span>
+ADVERSARIAL RED, failed: ./test/adversarial/onda7-regressao-nucleo.mjs ./test/adversarial/onda7-regressao-superficie.mjs
+GATE RED, failed: test:adversarial</pre>
+      </div>
+
+      <h3>Por que acontece</h3>
+      <div class="pretrain">
+        <span class="ve-label">Antes da figura</span>
+        <p>Uma peça nova aparece no desenho: <dfn data-term="relançar">relançar</dfn>, quando a suíte executa a si mesma de novo, como processo filho, já com HOME temporário.</p>
+      </div>
+      <figure>
+        <section class="diagram-shell" role="img" aria-label="Figura 3: o npm test fica vermelho porque duas suítes exigem o sandbox da auditoria e o script não o cria; dentro do sandbox, as duas passam.">
+          <p class="diagram-shell__hint">Ctrl/Cmd + roda para ampliar · arraste para mover · duplo clique para ajustar</p>
+          <div class="mermaid-wrap">
+            <div class="zoom-controls">
+              <button type="button" data-action="zoom-in" title="Ampliar">+</button>
+              <button type="button" data-action="zoom-out" title="Reduzir">&minus;</button>
+              <button type="button" data-action="zoom-fit" title="Ajustar">&#8634;</button>
+              <button type="button" data-action="zoom-one" title="Tamanho real">1:1</button>
+              <button type="button" data-action="zoom-expand" title="Abrir em tamanho cheio">&#x26F6;</button>
+              <span class="zoom-label">Carregando…</span>
+            </div>
+            <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+          </div>
+          <script type="text/plain" class="diagram-source">
+flowchart TD
+  NT["npm test<br/>com o seu HOME real"] -->|"roda em sequência"| OKS["smoke · brave · 6 adversariais<br/>se relançam com HOME temporário"]
+  OKS -->|"passam"| G8["8 suítes verdes"]
+  NT -->|"roda"| NUC["onda7-regressao-nucleo"]
+  NUC -->|"checa antes do import"| C1{"HOME está dentro<br/>de /var/tmp?"}
+  C1 -->|"não: HOME real"| REF["REFUSING TO RUN<br/>exit 1"]
+  NT -->|"roda"| SUP["onda7-regressao-superficie"]
+  SUP -->|"checa antes de relançar"| C2{"preload existe em<br/>/tmp/surf-audit-20260830?"}
+  C2 -->|"não: /tmp foi limpo"| MIS["PRELOAD MISSING<br/>exit 1"]
+  REF -->|"suíte falhou"| RED["GATE RED"]
+  MIS -->|"suíte falhou"| RED
+  SB["Sandbox montado à mão<br/>HOME temporário + preload"] -->|"com as duas condições"| PASS["66/0 e 129/0<br/>código verde"]
+  classDef crit fill:#9f1a12,stroke:#f97066,stroke-width:2px
+  classDef good fill:#05603a,stroke:#47cd89,stroke-width:2px
+  class REF,MIS,RED crit
+  class PASS good
+          </script>
+        </section>
+        <figcaption><b>Figura 3 —</b> O npm test fica vermelho porque duas suítes exigem o sandbox da auditoria e o script não o cria; dentro do sandbox, as duas passam.</figcaption>
+      </figure>
+      <div class="signal">
+        <span class="ve-label">Ponto crítico</span>
+        <p><strong>As duas travas funcionam exatamente como deviam.</strong> O defeito é o npm test não montar o sandbox que elas exigem.</p>
+      </div>
+
+      <h3>Por que as travas existem</h3>
+      <p>Por causa da H10. <code>KEYS_FILE</code> e os demais caminhos de configuração são calculados no momento do <code>import</code>. As suítes antigas se protegem relançando-se com HOME temporário antes de importar qualquer coisa. A <code>nucleo</code> só confere e desiste, sem se relançar.</p>
+
+      <h3>Por que o preload sumiu</h3>
+      <p>Ele foi criado em <code>/tmp</code> durante a rodada de auditoria de 30 de agosto e nunca entrou no git; o <code>/tmp</code> é limpo no boot. Um detalhe complica a correção: as duas suítes esperam contadores diferentes do preload — <code>globalThis.__zeroRedeNetwork.counts()</code> na <code>nucleo</code> e <code>globalThis.__SURF_NET_COUNTERS__</code> na <code>superficie</code>.</p>
+
+      <h3>A prova de que o código está bom</h3>
+      <ul>
+        <li><code>nucleo</code> com <code>HOME=$(mktemp -d)</code>: 66 asserções passaram, 0 falharam.</li>
+        <li><code>superficie</code> numa cópia do repositório, com um preload improvisado: 129 passaram, 0 falharam, 0 conexões de rede.</li>
+      </ul>
+
+      <h3>Por que importa</h3>
+      <p>O portão de testes fica vermelho para qualquer pessoa ou servidor fora do sandbox da auditoria. E <code>docs/debito-tecnico.md:438</code> ainda afirma “npm test exit 0, GATE GREEN”. Um vermelho permanente ensina a ignorar o vermelho.</p>
+
+      <h3>Correção</h3>
+      <ul>
+        <li>Versionar o preload em <code>test/fixtures/</code> e apontar para ele por caminho relativo ao repositório.</li>
+        <li>Unificar a interface dos contadores entre as duas suítes.</li>
+        <li>Fazer a <code>nucleo</code> se relançar com HOME temporário, como a <code>busca</code> e a <code>superficie</code> já fazem.</li>
+        <li>Atualizar a linha do débito técnico.</li>
+      </ul>
+
+      <details class="collapsible">
+        <summary>Ver o código e como reproduzir o verde</summary>
+        <div class="collapsible__body">
+          <p>O script de teste roda cada suíte com o ambiente de quem chamou — inclusive o HOME real.</p>
+          <div class="code-block">
+            <div class="code-block__file">package.json · "test" e "test:adversarial" (reformatados para leitura)</div>
+<pre>npm run test:syntax || exit 1
+bad=''
+for f in ./test/smoke.mjs ./test/brave.mjs; do node "$f" || bad="$bad $f"; done
+npm run --silent test:adversarial || bad="$bad test:adversarial"
+if [ -n "$bad" ]; then echo "GATE RED, failed:$bad"; exit 1; fi
+echo 'GATE GREEN'
+
+<span class="cm"># test:adversarial</span>
+for f in ./test/adversarial/*.mjs; do <span class="hl">node "$f"</span> || bad="$bad $f"; done</pre>
+          </div>
+          <p>A trava da <code>nucleo</code>, e o comentário que manda rodar com HOME temporário.</p>
+          <div class="code-block">
+            <div class="code-block__file">test/adversarial/onda7-regressao-nucleo.mjs:22-30, :52-55</div>
+<pre><span class="cm">// ZERO NETWORK: HOME must be a throwaway dir (the H10 trap — config constants
+// freeze at module import, so this file mutates env BEFORE any src import and
+// then seals the sandbox). …
+// Run:   NODE_OPTIONS="--require /tmp/surf-audit-20260830/test-nucleo/preload-zero-rede.cjs" \
+//        HOME=$(mktemp -d) node test/adversarial/onda7-regressao-nucleo.mjs</span>
+
+const HOME = homedir();
+<span class="hl">if (!String(HOME).startsWith(tmpdir())) {</span>
+  process.stderr.write(`REFUSING TO RUN — HOME=${HOME} is not under ${tmpdir()} (H10 sandbox seal)\n`);
+  process.exit(1);
+}</pre>
+          </div>
+          <p>O caminho fixo do preload na <code>superficie</code>.</p>
+          <div class="code-block">
+            <div class="code-block__file">test/adversarial/onda7-regressao-superficie.mjs:49, :56-58</div>
+<pre><span class="hl">const PRELOAD = '/tmp/surf-audit-20260830/test-superficie/preload-zero-rede.cjs';</span>
+<span class="cm">// …</span>
+  if (!existsSync(PRELOAD)) {
+    process.stderr.write(`PRELOAD MISSING: ${PRELOAD} — create it before running this suite\n`);
+    process.exit(1);
+  }</pre>
+          </div>
+          <p>Como reproduzir o verde da <code>nucleo</code>.</p>
+          <div class="code-block">
+            <div class="code-block__file">terminal</div>
+<pre>$ HOME=$(mktemp -d) node test/adversarial/onda7-regressao-nucleo.mjs
+66 passed, 0 failed
+onda7-regressao-nucleo-ok</pre>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ===================== VALIDADE ===================== -->
+    <section class="block" id="validade" aria-labelledby="h-val">
+      <h2 id="h-val">Até quando isto vale</h2>
+      <p>Vale para o surf-agent-skill 8.0.1, commit <code>0dcf6ad</code>, medido em 15 de setembro de 2026 nesta máquina (Node 24.19.0). As linhas de código citadas mudam com o próximo commit.</p>
+      <p class="foot">Os outros 12 achados do teste estão no laudo completo: <a href="https://claude.ai/artifact/53b5JL8WqXSfKDqcCr87js">Laudo surf-agent-skill 8.0.1</a>.</p>
+    </section>
+
+  </div>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  const config = {
+    fitPadding: 24,
+    minHeight: 360,
+    maxHeightPx: 900,
+    maxHeightVh: 0.82,
+    maxInitialZoom: 1.6,
+    minZoom: 0.08,
+    maxZoom: 6.5,
+    zoomStep: 0.14,
+    readabilityFloor: 0.58
+  };
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+  function isDarkScheme() {
+    const scheme = getComputedStyle(document.documentElement).colorScheme;
+    return scheme === 'dark' || ((scheme === 'normal' || scheme === '') && darkQuery.matches);
+  }
+
+  function themeVariables(isDark) {
+    return isDark
+      ? {
+          darkMode: true,
+          primaryColor: '#1e242e',
+          primaryTextColor: '#dadee5',
+          primaryBorderColor: '#343b45',
+          lineColor: '#9da5b2',
+          secondaryColor: '#1e242e',
+          secondaryTextColor: '#dadee5',
+          tertiaryColor: '#1e242e',
+          tertiaryTextColor: '#dadee5',
+          background: '#070b14',
+          textColor: '#dadee5',
+          nodeTextColor: '#dadee5',
+          edgeLabelBackground: '#1b2230'
+        }
+      : {
+          primaryColor: '#5537eb',
+          primaryTextColor: '#ffffff',
+          primaryBorderColor: '#d4d8de',
+          lineColor: '#414853',
+          secondaryColor: '#e1e5eb',
+          secondaryTextColor: '#414853',
+          tertiaryColor: '#e1e5eb',
+          tertiaryTextColor: '#414853',
+          background: '#f3f5f9',
+          textColor: '#414853',
+          nodeTextColor: '#ffffff',
+          edgeLabelBackground: '#ffffff'
+        };
+  }
+
+  function initMermaid() {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      look: 'classic',
+      securityLevel: 'strict',
+      flowchart: { htmlLabels: true, curve: 'basis' },
+      themeVariables: {
+        ...themeVariables(isDarkScheme()),
+        fontFamily: "'Inter', system-ui, sans-serif",
+        fontSize: '15px'
+      }
+    });
+  }
+
+  let activeDrag = null;
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  const rerenderers = [];
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+    if (!wrap || !viewport || !canvas || !source || !label) return;
+
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+    let sx = 0, sy = 0, spx = 0, spy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+      panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+    }
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW * zoom) + 'px';
+      svg.style.height = (svgH * zoom) + 'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom * 100) + '%';
+    }
+    function canPan() {
+      return svgW * zoom + config.fitPadding * 2 > viewport.clientWidth
+          || svgH * zoom + config.fitPadding * 2 > viewport.clientHeight;
+    }
+    function computeSmartFit() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const aW = Math.max(80, vpW - config.fitPadding * 2);
+      const aH = Math.max(80, vpH - config.fitPadding * 2);
+      const contain = Math.min(aW / svgW, aH / svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        if (svgH / svgW >= vpH / Math.max(vpW, 1)) { z = aW / svgW; mode = 'width'; }
+        else { z = aH / svgH; mode = 'height'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit();
+      zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+    function setOneToOne() {
+      zoom = 1; fitMode = '1:1';
+      panX = (viewport.clientWidth - svgW) / 2;
+      panY = (viewport.clientHeight - svgH) / 2;
+      applyTransform();
+    }
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+      const ratio = next / zoom;
+      panX = cx - ratio * (cx - panX);
+      panY = cy - ratio * (cy - panY);
+      zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+    function readSvgNaturalSize(svg) {
+      let w = 0, h = 0;
+      if (svg.viewBox?.baseVal?.width > 0) { w = svg.viewBox.baseVal.width; h = svg.viewBox.baseVal.height; }
+      if (!w) { w = parseFloat(svg.getAttribute('width')) || 0; h = parseFloat(svg.getAttribute('height')) || 0; }
+      if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+    function setAdaptiveHeight() {
+      if (!svgW) return;
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+      const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, maxVp));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+    }
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg');
+      if (!svg) return;
+      const clone = svg.cloneNode(true);
+      clone.style.width = '';
+      clone.style.height = '';
+      const bg = isDarkScheme() ? '#070b14' : '#f3f5f9';
+      const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Diagrama</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${bg};padding:40px;box-sizing:border-box}svg{max-width:100%;max-height:90vh;height:auto}</style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    }
+    async function render() {
+      try {
+        const code = source.textContent.trim();
+        const id = 'diagram-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const { svg } = await mermaid.render(id, code);
+        const parsed = new DOMParser().parseFromString(svg, 'text/html');
+        const parsedSvg = parsed.body.querySelector('svg');
+        if (!parsedSvg) { label.textContent = 'Erro: sem SVG'; shell.dataset.rendered = 'error'; return; }
+        canvas.replaceChildren(document.adoptNode(parsedSvg));
+        const svgNode = canvas.querySelector('svg');
+        const size = readSvgNaturalSize(svgNode);
+        svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width');
+        svgNode.removeAttribute('height');
+        svgNode.style.maxWidth = 'none';
+        svgNode.style.display = 'block';
+        setAdaptiveHeight();
+        fitDiagram();
+        shell.dataset.rendered = 'ok';
+      } catch (err) {
+        console.error('Mermaid render failed:', err);
+        label.textContent = 'Erro: ' + (err.message || 'falha ao renderizar');
+        shell.dataset.rendered = 'error';
+      }
+    }
+
+    const actions = {
+      'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-fit': fitDiagram,
+      'zoom-one': setOneToOne,
+      'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([action, handler]) => {
+      wrap.querySelector(`[data-action="${action}"]`)?.addEventListener('click', handler);
+    });
+    viewport.addEventListener('dblclick', fitDiagram);
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        zoomAround(e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep), e.clientX - rect.left, e.clientY - rect.top);
+        return;
+      }
+      if (canPan()) { e.preventDefault(); panX -= e.deltaX; panY -= e.deltaY; applyTransform(); }
+    }, { passive: false });
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning');
+      sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+      e.preventDefault();
+      activeDrag = {
+        onMove: (ev) => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+        onEnd: () => wrap.classList.remove('is-panning')
+      };
+    });
+    new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+
+    rerenderers.push(render);
+    return render();
+  }
+
+  await document.fonts.ready;
+  initMermaid();
+  const shells = [...document.querySelectorAll('.diagram-shell')];
+  Promise.all(shells.map(initDiagram)).then(() => { document.documentElement.dataset.diagrams = 'done'; });
+
+  window.rerenderDiagrams = () => { initMermaid(); return Promise.all(rerenderers.map((r) => r())); };
+  darkQuery.addEventListener('change', () => window.rerenderDiagrams());
+  new MutationObserver(() => window.rerenderDiagrams())
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme', 'style'] });
+</script>
+
+<script>
+  (function () {
+    const links = [...document.querySelectorAll('.toc a')];
+    const targets = links.map((a) => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const setActive = (id) => links.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible[0]) setActive(visible[0].target.id);
+    }, { rootMargin: '-10% 0px -70% 0px' });
+    targets.forEach((t) => observer.observe(t));
+    setActive('resposta');
+  })();
+</script>
+</body>
+</html>

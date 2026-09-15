@@ -474,7 +474,10 @@ metadata:
         10 pedem 100 requisições ao Brave, que chegam ENFILEIRADAS e não
         simultâneas enquanto o limitador de taxa estiver armado. O preço é
         latência, não erro: a rajada inteira fica parada esperando a fila
-        drenar no ritmo do plano.</step>
+        drenar no ritmo do plano. Dividir não corta cobertura: o
+        `surf-search-normal` roda na sua onda única todas as queries que o
+        planejador admitiu (até `--max-queries`, padrão 10), `--sub-agents` por
+        vez.</step>
       <step>Barreira.</step>
       <step>Registre cada handoff: resposta, confiança, fontes, caminho do
         arquivo. O STATUS SAI DA LEITURA DE UMA PALAVRA, não de julgamento —
@@ -758,7 +761,9 @@ metadata:
       inteira espera a fila drenar no ritmo do plano —, não erro.
       Por isso todo prompt de rajada carrega
       `--sub-agents=max(1, floor(N / <tamanho da rajada>))`. Com N=10 e uma
-      rajada de 5, cada sub-agente recebe `--sub-agents=2`.</rule>
+      rajada de 5, cada sub-agente recebe `--sub-agents=2`. Isso estreita só a
+      concorrência: cada chamada normal continua rodando todas as queries do
+      plano (até `--max-queries`).</rule>
     <rule>O PLANO BRAVE É O TETO REAL. A CLI lê o limite de requisições por
       segundo do próprio cabeçalho de resposta do Brave e enfileira o que
       passar disso — não falha, mas demora. Um plano legado de 1 req/s serve

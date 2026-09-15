@@ -9,7 +9,7 @@
 // reach Brave now fails loudly instead of quietly answering from Wikipedia.
 
 import {
-  loadState, saveStateAtomic, markBurned, providerHasUsableKey,
+  loadState, loadCliState, saveStateAtomic, markBurned, providerHasUsableKey,
   setCooldown, cooldownActive, explainUnusable, getValidation,
 } from './state.mjs';
 import { audit, recordUsage } from './audit.mjs';
@@ -173,7 +173,7 @@ export async function dispatch(operation, args, flags = {}, runCtx = {}) {
   // Library mode: caller can pass an in-memory state object to avoid touching
   // ~/.config/surf/keys.json. State mutations (burned, cooldowns) stay
   // in-memory and don't get persisted when runCtx.state._inMemory is true.
-  const state = runCtx.state || await loadState();
+  const state = runCtx.state || await loadCliState();
   const persistState = !state._inMemory;
   let cachedHit = null;
   let cKey = null;

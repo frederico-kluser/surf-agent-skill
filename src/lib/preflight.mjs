@@ -27,7 +27,7 @@
 // unvalidated and the next run re-probes it (for free). See resolveGate.
 
 import {
-  loadState, saveStateAtomic, cooldownActive, nextResetIso,
+  loadState, loadCliState, saveStateAtomic, cooldownActive, nextResetIso,
   getValidation, setValidation, explainUnusable, KEYS_FILE,
 } from './state.mjs';
 import { getProvider, SEARCH_PROVIDER, capabilityMap } from './providers/index.mjs';
@@ -290,7 +290,7 @@ export function formatGate(verdict, detail, provider = SEARCH_PROVIDER) {
 
   const fix = {
     [GATE.MISSING]: [
-      `Checked: ${KEYS_FILE}, $${envVar} / $${envVar}S, ./.env`,
+      `Checked: ${KEYS_FILE}, then $${envVar} / $${envVar}S (./.env only in library mode)`,
       `Fix:      surf-research-skill keys add --provider ${provider} <key>`,
       `          (or: surf   — the interactive setup)`,
       signup ? `Get a key: ${signup}` : '',
@@ -365,14 +365,15 @@ export async function assertSearchReady(state, operation, opts = {}) {
 }
 
 /**
- * Bin-level entry point: load state, gate, and either return it or print the
+ * Bin-level entry point: load state (keys.json + env keys, in memory), gate,
+ * and either return it or print the
  * canonical message and exit 78. Every executable calls this before doing any
  * work, so the halt arrives in milliseconds rather than after an LLM plan call.
  */
 export async function preflightOrExit({ allowLive = true } = {}) {
   let state;
   try {
-    state = await loadState();
+    state = await loadCliState();
   } catch (e) {
     process.stderr.write(`❌ Error [BraveKeyMissing]: could not read ${KEYS_FILE}: ${e.message}\n`);
     process.exit(EXIT_CONFIG);

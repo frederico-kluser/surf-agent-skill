@@ -14,7 +14,7 @@ import { formatFor } from '../src/lib/format.mjs';
 import { runKeysSubcommand, maskState, redactState } from '../src/lib/keys-cmd.mjs';
 import { cacheClear } from '../src/lib/cache.mjs';
 import { readUsage, USAGE_LOG } from '../src/lib/audit.mjs';
-import { migrateLegacy, loadState, saveStateAtomic, KEYS_FILE } from '../src/lib/state.mjs';
+import { migrateLegacy, loadCliState, isEnvKeyIndex, saveStateAtomic, KEYS_FILE } from '../src/lib/state.mjs';
 import { runSetup } from '../src/lib/setup.mjs';
 import { runProjectConfig, formatProjectConfigResult } from '../src/lib/project-config.mjs';
 import { MODES as SEARCH_MODES } from '../src/lib/providers/brave.mjs';
@@ -70,11 +70,12 @@ surf-ai (autonomous research — the CLI runs the whole loop):
     --ai-model <slug>       override the LLM (default deepseek/deepseek-v4-pro)
 
   Fan-out and depth:
-    --sub-agents N          simultaneous searches per wave (default ${DEFAULT_SUB_AGENTS}, max ${MAX_SUB_AGENTS}).
-                            Also accepted as --sub-agents=N. This is the ONE
-                            simultaneity budget: it is both the wave width and
-                            the worker-pool width, so the two can never
-                            multiply into a burst your Brave plan cannot serve.
+    --sub-agents N          searches running at once (default ${DEFAULT_SUB_AGENTS}, max ${MAX_SUB_AGENTS}).
+                            Also accepted as --sub-agents=N. It is the worker-
+                            pool width, so the two levels can never multiply
+                            into a burst your Brave plan cannot serve. In
+                            unlimit it is also each wave's width; normal's
+                            single wave runs every planned query (--max-queries).
                             surf reads your plan's real requests-per-second
                             from Brave's own response headers and paces the
                             wave to it — asking for more than the plan allows
@@ -85,7 +86,7 @@ surf-ai (autonomous research — the CLI runs the whole loop):
                             queries; a depth-2 query exists because a depth-1
                             result raised it.
     --max-rounds N          wave cap, unlimit only (default 6, hard cap 50)
-    --max-queries N         frontier admissions per wave (>= --sub-agents)
+    --max-queries N         queries per wave (>= --sub-agents; normal's one wave runs them all)
     --search-mode <fast|normal|slow>   results per query: 5 / 10 / 20
     --budget-ms N           override the self-budget (0 = unlimited)
     --ledger                append the coverage table + the rejected frontier
@@ -528,7 +529,7 @@ async function cmdSearchParallel(pos, flags) {
   // dispatches mutate this one object (single-threaded JS → no torn writes),
   // burned keys become visible to in-flight workers immediately, and we avoid
   // lockfile thrash. State is persisted once after the pool drains.
-  const state = await loadState();
+  const state = await loadCliState();
   state._inMemory = true;
 
   progress.start(
@@ -701,7 +702,7 @@ async function cmdCost(_pos, flags) {
 //   exit 0  → a usable Brave key exists, searches can run
 //   exit 78 → they cannot, and retrying will not help (sysexits EX_CONFIG)
 async function cmdGate(_pos, flags) {
-  const state = await loadState();
+  const state = await loadCliState();
   const res = await resolveGate(state, 'brave');
   const ready = res.verdict === GATE.READY;
   const gate = ready ? null : formatGate(res.verdict, res.detail, 'brave');
@@ -718,7 +719,13 @@ async function cmdGate(_pos, flags) {
       code: ready ? 'BraveKeyReady' : gate.code,
       detail: res.detail || null,
       key_index: Number.isInteger(res.index) && res.index >= 0 ? res.index : null,
+      key_source: Number.isInteger(res.index) && res.index >= 0
+        ? (isEnvKeyIndex(state, 'brave', res.index) ? 'environment' : 'keys.json')
+        : null,
       key_count: brave.key_count || 0,
+      env_key_count: typeof (state.brave && state.brave._storedKeyCount) === 'number'
+        ? state.brave.keys.length - state.brave._storedKeyCount
+        : 0,
       keys: brave.keys || [],
       keys_file: KEYS_FILE,
       exit_code: ready ? 0 : EXIT_CONFIG,
@@ -726,7 +733,8 @@ async function cmdGate(_pos, flags) {
     }, state);
     out(JSON.stringify(payload, null, 2));
   } else if (ready) {
-    out(`✓ Brave gate OK — key #${res.index} is usable (${res.detail}).`);
+    const fromEnv = isEnvKeyIndex(state, 'brave', res.index) ? ' — from $BRAVE_API_KEY(S), in memory' : '';
+    out(`✓ Brave gate OK — key #${res.index} is usable (${res.detail})${fromEnv}.`);
   } else {
     process.stderr.write(gate.text + '\n');
   }
@@ -854,7 +862,7 @@ if (!KNOWN_VERBS.has(cmd) && !REMOVED_VERBS.has(cmd)) {
 }
 
 if (!NO_KEYS_NEEDED.has(cmd) && !REMOVED_VERBS.has(cmd)) {
-  const state = await loadState();
+  const state = await loadCliState();
   try {
     await assertProviderReady(state, 'brave');
   } catch (e) {
@@ -870,7 +878,7 @@ if (!NO_KEYS_NEEDED.has(cmd) && !REMOVED_VERBS.has(cmd)) {
       process.exit(EXIT_CONFIG);
     }
     try {
-      await assertProviderReady(await loadState(), 'brave');
+      await assertProviderReady(await loadCliState(), 'brave');
       process.stderr.write('\n— Resuming your command —\n\n');
     } catch (again) {
       process.stderr.write((again.message || String(again)) + '\n');

@@ -42,6 +42,10 @@ const BIN = (n) => path.join(ROOT, 'bin', n);
 // ---------------------------------------------------------------- harness ---
 
 if (!process.env.SURF_ADV_FLAGS_CHILD) {
+  // An exported key must not reach the child. The CLI and surf-ai use
+  // BRAVE_API_KEY(S) / OPENROUTER_API_KEY(S) behind the stored keys, so a key
+  // sitting in the developer's shell would change what this suite sees.
+  for (const k of ['BRAVE_API_KEY', 'BRAVE_API_KEYS', 'OPENROUTER_API_KEY', 'OPENROUTER_API_KEYS']) delete process.env[k];
   const home = mkdtempSync(path.join(tmpdir(), 'surf-adv-flags-'));
   mkdirSync(path.join(home, '.config', 'surf'), { recursive: true });
   // A pre-validated key so the preflight gate (exit 78) resolves from the

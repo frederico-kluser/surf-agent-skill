@@ -270,12 +270,21 @@ export function setValidation(state, provider, index, { ok, status, reason } = {
   const i = p.validated.findIndex(v => v && v.index === index);
   if (i >= 0) p.validated[i] = entry;
   else p.validated.push(entry);
+  if (isEnvKeyIndex(state, provider, index)) envVerdicts.set(envVerdictId(provider, p.keys[index]), entry);
 }
 
 /** Forget a cached verdict (after a burn, or when the key list shifts). */
 export function clearValidation(state, provider, index) {
   const p = state && state[provider];
-  if (!p || !Array.isArray(p.validated)) return;
+  if (!p) return;
+  // An exported key's remembered verdict goes with it: a key that just burned
+  // must not come back trusted on the next load.
+  if (typeof p._storedKeyCount === 'number' && Array.isArray(p.keys)) {
+    for (let i = p._storedKeyCount; i < p.keys.length; i++) {
+      if (index === undefined || i === index) envVerdicts.delete(envVerdictId(provider, p.keys[i]));
+    }
+  }
+  if (!Array.isArray(p.validated)) return;
   p.validated = index === undefined
     ? []
     : p.validated.filter(v => v && v.index !== index);
@@ -561,16 +570,132 @@ export async function loadState({ skipMonthlyReset = false } = {}) {
   return raw;
 }
 
+// --------------------------------------------------- keys from the env ---
+// A key exported in the shell is used IN MEMORY ONLY, behind the stored ones.
+// Stored keys keep their positions — and so their burn, cooldown and verdict
+// bookkeeping — while env keys that are not already stored are appended after
+// them. The section remembers how many keys were stored (`_storedKeyCount`, the
+// same marker openrouter.mjs has always used), and saveStateAtomic() cuts the
+// tail back off before anything reaches disk, whichever writer is saving.
+//
+// Precedence is deliberate: an exported key EXTENDS the ring, it never
+// replaces it. Overriding would silently shrink a curated multi-key pool — and
+// its per-key rate budgets — to the one key some other tool asked the user to
+// export. ./.env is NOT read here; only the library API (src/env.mjs) reads it.
+
+const ENV_KEY_VARS = {
+  brave: ['BRAVE_API_KEYS', 'BRAVE_API_KEY'],
+  openrouter: ['OPENROUTER_API_KEYS', 'OPENROUTER_API_KEY'],
+};
+
+// Verdicts about exported keys, for the life of this process and never longer.
+// They are not written, but one command loads state more than once (the bin's
+// own gate, then dispatch or surf-ai), and without this every load re-probed a
+// key the load before it had just proved. Keyed by value: indexes move when the
+// stored ring changes under a long-lived process.
+const envVerdicts = new Map();
+const envVerdictId = (provider, key) => `${provider}\u0000${key}`;
+
+/** The keys for `provider` found in the environment: the plural CSV first, then the singular. */
+export function envKeysFor(provider, env = process.env) {
+  const [plural, single] = ENV_KEY_VARS[provider] || [];
+  const found = [];
+  if (plural && typeof env[plural] === 'string') {
+    for (const k of env[plural].split(',')) { const t = k.trim(); if (t) found.push(t); }
+  }
+  const one = single && typeof env[single] === 'string' ? env[single].trim() : '';
+  if (one) found.push(one);
+  return [...new Set(found)];
+}
+
+/**
+ * Append the environment's keys for `provider` behind the stored ones, in
+ * place. Idempotent: a key already in the section is never added twice, and
+ * the stored count is recorded once. A verdict this process already reached
+ * about an appended key comes with it. Returns how many keys were added.
+ */
+export function mergeEnvKeysInto(state, provider, env = process.env) {
+  if (!state || typeof state !== 'object') return 0;
+  if (!state[provider] || typeof state[provider] !== 'object') state[provider] = blankProvider();
+  const sec = state[provider];
+  if (!Array.isArray(sec.keys)) sec.keys = [];
+  const have = new Set(sec.keys);
+  const added = envKeysFor(provider, env).filter(k => !have.has(k));
+  if (!added.length) return 0;
+  if (typeof sec._storedKeyCount !== 'number') sec._storedKeyCount = sec.keys.length;
+  const start = sec.keys.length;
+  sec.keys.push(...added);
+  for (let i = start; i < sec.keys.length; i++) {
+    const v = envVerdicts.get(envVerdictId(provider, sec.keys[i]));
+    if (!v) continue;
+    if (!Array.isArray(sec.validated)) sec.validated = [];
+    if (!sec.validated.some(e => e && e.index === i)) sec.validated.push({ ...v, index: i });
+  }
+  return added.length;
+}
+
+/** Is key `index` of `provider` an environment key (in memory, never written)? */
+export function isEnvKeyIndex(state, provider, index) {
+  const sec = state && state[provider];
+  return !!sec && typeof sec._storedKeyCount === 'number'
+    && Number.isInteger(index) && index >= sec._storedKeyCount;
+}
+
+/**
+ * A shallow copy of `state` that is safe to write: every provider section that
+ * carries environment keys is cut back to its stored keys, and the burn,
+ * cooldown and verdict entries that pointed past them are dropped (their
+ * indexes mean nothing once those keys are gone). The merge snapshot, a
+ * symbol-keyed property, rides along on the copy. The live state is untouched.
+ */
+export function stripEnvKeys(state) {
+  if (!state || typeof state !== 'object') return state;
+  let copy = null;
+  for (const p of PROVIDERS) {
+    const sec = state[p];
+    if (!sec || typeof sec !== 'object' || typeof sec._storedKeyCount !== 'number') continue;
+    const n = sec._storedKeyCount;
+    const below = (list) => (Array.isArray(list)
+      ? list.filter(e => e && Number.isInteger(e.index) && e.index < n)
+      : []);
+    const { _storedKeyCount, ...rest } = sec;
+    copy = copy || { ...state };
+    copy[p] = {
+      ...rest,
+      keys: (Array.isArray(sec.keys) ? sec.keys : []).slice(0, n),
+      current: Number.isInteger(sec.current) && sec.current < n ? sec.current : 0,
+      burned: below(sec.burned),
+      cooldowns: below(sec.cooldowns),
+      validated: below(sec.validated),
+    };
+  }
+  return copy || state;
+}
+
+/**
+ * The state every command that SEARCHES (or gates a search) works from:
+ * keys.json plus the search keys exported in the environment, in memory.
+ * The `keys` commands keep calling loadState(): they manage what is stored.
+ */
+export async function loadCliState(opts = {}) {
+  const state = await loadState(opts);
+  for (const p of SEARCH_PROVIDERS) mergeEnvKeysInto(state, p);
+  return state;
+}
+
 export async function saveStateAtomic(state) {
   await ensureConfigDir();
   return queueSave(async () => {
-    const snap = state && state[SNAPSHOT];
+    // Environment keys are cut off HERE, at the one door every writer goes
+    // through, so no caller can persist a key the user only exported.
+    const mine = stripEnvKeys(state);
+    const snap = mine && mine[SNAPSHOT];
     await acquireLock();
     try {
       let diskText = null;
       try { diskText = await readFile(KEYS_FILE, 'utf8'); } catch { diskText = null; }
 
-      let out = state;
+      let out = mine;
       // Only a state that came from loadState() carries a base, and only a
       // file that moved since then needs merging. Everything else writes
       // exactly what the caller built, as it always has.
@@ -581,12 +706,12 @@ export async function saveStateAtomic(state) {
           if (p && typeof p === 'object' && !Array.isArray(p)) theirs = normalizeFullState(p);
         } catch { theirs = null; }
         if (theirs) {
-          out = mergeStates(snap.base, state, theirs);
+          out = mergeStates(snap.base, mine, theirs);
         } else {
           // Somebody corrupted keys.json after we loaded it. Copy it aside
           // before our write lands on top of it.
           const record = await quarantineUnreadable(diskText);
-          out = { ...state };
+          out = { ...mine };
           if (record) out.unreadable = record;
         }
       }

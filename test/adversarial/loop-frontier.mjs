@@ -32,6 +32,10 @@ const SELF = fileURLToPath(import.meta.url);
 // ---------------------------------------------------------------- harness ---
 
 if (!process.env.SURF_ADV_LOOP_CHILD) {
+  // An exported key must not reach the child. The CLI and surf-ai use
+  // BRAVE_API_KEY(S) / OPENROUTER_API_KEY(S) behind the stored keys, so a key
+  // sitting in the developer's shell would change what this suite sees.
+  for (const k of ['BRAVE_API_KEY', 'BRAVE_API_KEYS', 'OPENROUTER_API_KEY', 'OPENROUTER_API_KEYS']) delete process.env[k];
   const home = mkdtempSync(path.join(tmpdir(), 'surf-adv-loop-'));
   mkdirSync(path.join(home, '.config', 'surf'), { recursive: true });
   writeFileSync(
@@ -747,15 +751,75 @@ section('orchestrator: the frontier can be left holding queries nobody mentions 
 {
   reset([orChat(PLAN_10Q), orChat('# Answer\nDone [1].')]);
   const r = await run({ question: 'wide plan narrow wave' }, { mode: 'normal', subAgents: 3, flags: NOCACHE }, 'normal 10 queries / 3 agents');
-  eq('only 3 of the 10 planned queries actually ran', braveCalls.length, 3);
-  eq('7 stay queued', r.frontier.pending, 7);
+  // NOT a contract. Q5a, Q5b and Q5c used to be eq()/ok() rows ("only 3 of the
+  // 10 planned queries actually ran", "7 stay queued", "the count IS present in
+  // the machine-readable result"), and what they pinned as correct was the
+  // DEFECT: normal mode popped only --sub-agents queries into its one and only
+  // wave, so 7 of the 10 queries the planner admitted never ran — and the
+  // research skill, which hands each sub-agent --sub-agents=max(1, floor(N /
+  // burst)), got ONE search per call. Widening that wave to --max-queries turned
+  // those rows red instead of flipping them: the pre-conversion run printed
+  // "112 contract assertion(s) passed, 3 failed" on exactly these three rows.
+  // The conditions below are the rows' own conditions, unchanged; only the
+  // channel changed, so the fix reads NOT REPRODUCED.
+  bug('Q5a', 'normal mode runs only --sub-agents (3) of the 10 planned queries',
+    braveCalls.length === 3, `${braveCalls.length} of 10 planned queries ran`);
+  bug('Q5b', '7 of the 10 planned queries stay queued after the one normal wave',
+    r.frontier.pending === 7, `frontier.pending=${r.frontier.pending}`);
   eq('and the stop reason claims the wave was by design', r.stop_reason, 'normal mode: a single wave by design');
   const lean = renderMarkdown(r);
   const full = renderMarkdown(r, { ledger: true });
+  // Flips together with Q5a/Q5b: this scenario no longer strands anything for
+  // the lean output to hide. The lean output still omits a queue when there is
+  // one; BUG-26b measures that in unlimit, where a wave legitimately leaves
+  // queries for the next.
   bug('BUG-26', 'the DEFAULT output never says that 7 of 10 planned queries were never run',
     !lean.includes('still queued') && full.includes('7 queries still queued'),
     'render.mjs:33-39 puts the "Frontier: N queries still queued" line behind --ledger, so the lean output an agent actually reads reports 3 queries, 1 wave and a clean stop — and nothing about the 70% of the plan that was dropped');
-  ok('the count IS present in the machine-readable result', r.frontier.pending === 7);
+  bug('Q5c', 'the machine-readable result reports 7 of the 10 planned queries left queued',
+    r.frontier.pending === 7, `frontier.pending=${r.frontier.pending}`);
+
+  // The contract that replaces them: the one normal wave runs the whole plan
+  // the frontier admitted, and the machine-readable count says so.
+  eq('all 10 planned queries ran in the one normal wave', braveCalls.length, 10);
+  eq('nothing is left queued', r.frontier.pending, 0);
+  eq('and it took exactly one wave', r.rounds, 1);
+}
+{
+  // --sub-agents still bounds simultaneity inside that wider wave. The stub
+  // answers at once, so each Brave reply is held for a few ms: without the
+  // hold no two searches would ever overlap, and a low peak would prove nothing.
+  const inner = globalThis.fetch;
+  let inFlight = 0;
+  let peak = 0;
+  globalThis.fetch = async (url, init) => {
+    if (!String(url).includes('brave')) return inner(url, init);
+    inFlight++;
+    peak = Math.max(peak, inFlight);
+    try {
+      await new Promise(res => setTimeout(res, 15));
+      return await inner(url, init);
+    } finally {
+      inFlight--;
+    }
+  };
+  try {
+    reset([orChat(PLAN_10Q), orChat('# Answer\nDone [1].')]);
+    await run({ question: 'wide plan three at a time' }, { mode: 'normal', subAgents: 3, flags: NOCACHE }, 'normal 10 queries / peak 3');
+    eq('at --sub-agents 3 the wave still runs all 10 queries', braveCalls.length, 10);
+    ok('with searches really overlapping, and never more than 3 at once', peak >= 2 && peak <= 3, `peak in flight = ${peak}`);
+
+    peak = 0;
+    reset([orChat(PLAN_10Q), orChat('# Answer\nDone [1].')]);
+    const r1 = await run({ question: 'wide plan one at a time' }, { mode: 'normal', subAgents: 1, flags: NOCACHE }, 'normal 10 queries / 1 agent');
+    // --sub-agents=1 is what the research skill hands each sub-agent of a burst
+    // of 10 (floor(10 / 10)).
+    eq('at --sub-agents 1 all 10 planned queries still run', braveCalls.length, 10);
+    eq('one at a time', peak, 1);
+    eq('and none is left queued', r1.frontier.pending, 0);
+  } finally {
+    globalThis.fetch = inner;
+  }
 }
 {
   // The same hole in unlimit mode: the analyst declares victory while nodes wait.

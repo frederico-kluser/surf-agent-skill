@@ -240,6 +240,9 @@ while the rate limiter is armed it is cross-process — every sub-agent is a
 separate process sharing one ledger — so the excess is QUEUED, not concurrent.
 What you buy by dividing the budget is wall-clock, not a saved error: an
 undivided fan-out leaves the whole burst waiting for the queue to drain.
+Dividing does NOT cut coverage: `surf-search-normal` runs every query its
+planner admitted (up to `--max-queries`, default 10) in its one wave,
+`--sub-agents` at a time.
 
 Bash timeout: 180000 ms for `normal`, 600000 ms for `unlimit`. Note that surf
 paces requests to your Brave plan's rate limit, so a wide fan-out on a slow plan

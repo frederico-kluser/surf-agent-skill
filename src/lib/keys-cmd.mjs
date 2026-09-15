@@ -2,7 +2,7 @@
 
 import {
   loadState, saveStateAtomic, clearBurned, blankProvider, nextResetIso,
-  setValidation, getValidation, PROVIDERS, KEYS_FILE,
+  setValidation, getValidation, envKeysFor, PROVIDERS, KEYS_FILE,
 } from './state.mjs';
 import { maskKey } from './flags.mjs';
 import { progress } from './progress.mjs';
@@ -350,8 +350,13 @@ export async function keysList(_pos, flags) {
     const nowTs = Date.now();
     const coolingIdx = new Set((pp.cooldowns || []).filter(c => new Date(c.until).getTime() > nowTs).map(c => c.index));
     lines.push(`## ${p} (${pp.keys.length} key${pp.keys.length === 1 ? '' : 's'})`);
+    // Exported keys are listed apart: search commands use them after the
+    // stored ones, in memory only, so `keys remove` has nothing to remove.
+    const envLines = envKeysFor(p).filter(k => !pp.keys.includes(k)).map(k =>
+      `- [env] ${maskKey(k)}  *(from $${p.toUpperCase()}_API_KEY(S): used after the stored keys, in memory, never stored)*`);
     if (!pp.keys.length) {
-      lines.push(`_no keys — add with \`surf-research-skill keys add --provider ${p} <key>\`_\n`);
+      lines.push(...envLines);
+      lines.push(`_no ${envLines.length ? 'stored ' : ''}keys — add with \`surf-research-skill keys add --provider ${p} <key>\`_\n`);
       continue;
     }
     pp.keys.forEach((k, i) => {
@@ -363,6 +368,7 @@ export async function keysList(_pos, flags) {
       if (v) flags.push(v.ok ? `validated ${String(v.at).slice(0, 10)}` : 'INVALID');
       lines.push(`- [${i}] ${maskKey(k)}${flags.length ? '  *(' + flags.join(', ') + ')*' : ''}`);
     });
+    lines.push(...envLines);
     if (pp.burned.length) {
       lines.push('');
       lines.push(`**Burned:**`);

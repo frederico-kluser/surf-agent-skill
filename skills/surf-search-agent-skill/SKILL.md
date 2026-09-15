@@ -29,7 +29,7 @@ model: inherit
 effort: medium
 metadata:
   version: "8.0.1"
-  requires: "a VALID BRAVE SEARCH key FIRST (surf-research-skill setup, or surf-research-skill keys add --provider brave <key> - stored in ~/.config/surf/keys.json, or $BRAVE_API_KEY / $BRAVE_API_KEYS, or ./.env): without it EVERY command here exits 78 before it searches anything, and there is no second provider to fall through to; node>=18; npm i -g surf-agent-skill for surf-search-normal + surf-research-skill in PATH; OPTIONALLY an OpenRouter key (surf-research-skill ai-setup) - without it surf-search-normal still exits 0 but degrades to cited EVIDENCE instead of an LLM synthesis, and this skill MUST say so out loud"
+  requires: "a VALID BRAVE SEARCH key FIRST (surf-research-skill setup, or surf-research-skill keys add --provider brave <key> - stored in ~/.config/surf/keys.json, or exported as $BRAVE_API_KEY / $BRAVE_API_KEYS - used in memory, after the stored keys; ./.env is read only in library mode): without it EVERY command here exits 78 before it searches anything, and there is no second provider to fall through to; node>=18; npm i -g surf-agent-skill for surf-search-normal + surf-research-skill in PATH; OPTIONALLY an OpenRouter key (surf-research-skill ai-setup) - without it surf-search-normal still exits 0 but degrades to cited EVIDENCE instead of an LLM synthesis, and this skill MUST say so out loud"
 ---
 
 # surf-search — one question, one answer, cited

@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<onda id="8" repo="surf-agent-skill" versao="8.0.1" data="2026-08-30">
+<!--  ═══════════════════════════════════════════════════════════════════════
+     ONDA 8 — ENCERRAMENTO DA AUDITORIA (dívida residual + pendências)
+     Muitos subagentes em paralelo: 1 worktree por frente, arquivos
+     disjuntos, cada subagente corrige E TESTA a própria frente.
+     O orquestrador integra um a um com gate em snapshot de integração.
+     ═══════════════════════════════════════════════════════════════════════  -->
+<global>
+<contexto>
+<produto>`surf-agent-skill@8.0.1`, npm. Pesquisa web para agentes de IA, sobre Brave Search e NADA MAIS. Sem chave Brave válida: exit 78 antes de qualquer coisa rodar. Node ESM, zero dependências de runtime. A skill irmã `deep-orchestrator-agent-skill` v4.0.0 depende desta — mudar o contrato de exit codes (sobretudo o 78) quebra as duas.</produto>
+<historia>
+Auditoria adversarial de 6 ondas (201 defeitos achados, 1083 asserções) + Onda 7 (2026-08-30): as 15 frentes liquidaram ~66 defeitos em 20 commits (main@0dcf6ad), gate verde com ~1410 asserções (3 suítes de regressão novas: nucleo 69, superficie 129, busca 115). O que sobrou está NESTE XML: a dívida residual declarada com evidência no relatório da Onda 7 — bugs que a régua prendia (e que esta Onda 8 AUTORIZA desbloquear), decisões D6 adiadas, e as pendências documentais/estruturais. Leia a sua seção abaixo antes de começar.
+</historia>
+</contexto>
+
+<regras severidade="FATAL">
+<regra id="R1" titulo="Zero rede, sem exceção"> A conta Brave tem cota mensal finita. PROIBIDO qualquer chamada de rede: curl, fetch real, surf-search-*, npm install, npx, docker pull, git fetch/pull. Substitua globalThis.fetch por um duplo ANTES do primeiro import. Para a PROVA, instrumente abaixo do fetch (net.Socket.prototype.connect, dns.lookup) via NODE_OPTIONS=--require (preload propaga para os netos). No handoff, PROVE zero requisições com os contadores; não afirme. O npm CLI faz update-notifier (2 chamadas ao registry): use `npm_config_update_notifier=false npm_config_offline=true` em todo npm, ou rode node direto. </regra>
+<regra id="R2" titulo="O estado real do usuário é intocável"> PROIBIDO tocar em `~/.config/surf/keys.json` (chaves REAIS) e `~/.cache/surf/ratelimit.json`. PROIBIDO rodar instalador/desinstalador com o HOME real. TODO teste com `HOME=$(mktemp -d)` ANTES de qualquer import (CONFIG_DIR/CACHE_DIR são export const que congelam no primeiro import — a armadilha H10; ajustar HOME depois do import escreve no diretório REAL). O ambiente do shell exporta BRAVE_API_KEY/OPENROUTER_API_KEY REAIS: sondas "keyless" precisam de strip explícito do env + cwd neutro (nível 3 do discoverKeys lê .env do cwd). No handoff, reporte o md5sum dos dois arquivos ANTES e DEPOIS. </regra>
+<regra id="R3" titulo="A worktree é a sua fronteira"> Trabalhe SOMENTE na worktree que o orquestrador criou. `cd` nela na primeira chamada. PROIBIDO escrever fora dela e tocar arquivo fora da sua lista de `&lt;arquivos&gt;`. Vários outros agentes editam outros arquivos AGORA — tocar arquivo alheio destrói o trabalho deles no merge. </regra>
+<regra id="R4" titulo="Assinatura exportada é contrato"> PROIBIDO alterar assinatura de função exportada, salvo autorização explícita no seu front. ACRÉSCIMO é permitido (exportar algo novo, acrescentar campo opcional). Prove com: `diff &lt;(git show HEAD:&lt;arquivo&gt; | grep "^export") &lt;(grep "^export" &lt;arquivo&gt;)`. </regra>
+<regra id="R5" titulo="A régua é a especificação, e ela tem armadilhas"> `npm test` roda ~1410 asserções em 10 arquivos. `ok()`/`eq()` vermelho = portão; `bug()` registra e não derruba (flipa sozinho para APPEARS FIXED quando o código é consertado). Um `bug()` é obrigado a sobreviver à própria correção — se a sua correção fizer um `bug()` MATAR a suíte (throw no nível do módulo, teardown que estoura), você encontrou uma armadilha (classe 2): embrulhe a condição em `attempt()`/try-catch num commit SEPARADO e ANTERIOR, ou prefira `progress.warn` + valor de retorno em vez de lançar. É PROIBIDO editar test/adversarial/*.mjs EXCETO os arquivos listados no seu front — e, quando autorizado, a conversão ok→bug segue o padrão "NOT a contract" da Onda 7 (condição INALTERADA + prova empírica PRÉ-conversão: rodar a suíte e citar "N passed, 1 failed na linha exata" no handoff). </regra>
+<regra id="R6" titulo="Não conserte o que foi decidido"> docs/debito-tecnico.md §2 lista os que NÃO são bugs e §4 as decisões de produto: cache hit servido SEM chave é DELIBERADO; `keys list` não exige chave e nunca vai exigir; stopwords no dedup REJEITADAS; `auth` é o único veredito irreversível; evidência manipulada é SINALIZADA, não apagada; quando o relógio mente, pacing A MAIS; transitório compra PAUSA. Desfazer uma dessas sem razão nova é regressão. </regra>
+<regra id="R7" titulo="Quebra = barreira + diagnóstico de causa"> Sempre que algo quebrar (gate vermelho, agente morto, timeout, teste flaky), PARE e classifique a causa ANTES de agir: (a) limite de API/ferramenta (erro 400/429 do provedor, timeout do bash pai matando grupo, load alto de OUTROS projetos, autofix de lint do harness reformatando o checkout) → re-tente com a correção de processo, NUNCA mude código por causa disso; (b) falha real de código → investigue com evidência arquivo:linha. A Onda 7 provou 3 falsos alarmes desta classe (timing sob load, model_not_supported, autofix biome). </regra>
+</regras>
+
+<criterios titulo="O que faz uma entrega ser aceita">
+<criterio n="1">`npm test` sai 0 — o portão (10 arquivos, ~1410 asserções).</criterio>
+<criterio n="2">Nenhuma asserção `ok()`/`eq()` nova vermelha, em nenhuma suíte.</criterio>
+<criterio n="3">Nenhum bug() já corrigido (ondas 2-7) volta a reproduzir — compare o ledger de defeitos ANTES e DEPOIS, não só a contagem.</criterio>
+<criterio n="4">Cada bug fechado vira `APPEARS FIXED` / `no longer reproduces` SOZINHO (ou com a conversão autorizada "NOT a contract" + prova pré-conversão).</criterio>
+<criterio n="5">Zero requisições de rede, PROVADO por instrumentação.</criterio>
+<criterio n="6">`keys.json` e `ratelimit.json` reais com md5 inalterado.</criterio>
+<criterio n="7">Exportações idênticas ao HEAD, salvo acréscimo autorizado.</criterio>
+<criterio n="8">Toda pergunta falsificável do seu front respondida com COMANDO e SAÍDA, não com raciocínio.</criterio>
+</criterios>
+
+<dicas titulo="O que os ~40 agentes anteriores aprenderam">
+<dica>MEÇA, não argumente. "106/106 suítes verdes, primeiroMs=37ms" vale mais que um parágrafo.</dica>
+<dica>RODE O BASELINE PRIMEIRO. Guarde a saída das 10 suítes ANTES de editar, num subdiretório PRIVADO do scratchpad (/tmp/surf-audit-20260830-onda8/NOME-DA-FRENTE/ — nomes genéricos são sobrescritos por outros agentes).</dica>
+<dica>DESCONFIE DA DESCRIÇÃO DO BUG. Vários bug() citam linha DEFASADA. Confirme no fonte antes de corrigir.</dica>
+<dica>PROCURE O SEGUNDO PONTO DE ENTRADA. Vários defeitos têm gêmeos por outra porta.</dica>
+<dica>CONVERSÃO DE RÉGUA (autorizada no seu front) exige: (1) provar empiricamente que a correção acende a linha (1 failed na linha exata); (2) converter com a MESMA condição + comentário "NOT a contract"; (3) mesma suíte verde. A Onda 7 fez 4 conversões assim (P1b, D1b, C1, BUG-07) e cada uma destravou um fix.</dica>
+<dica>PREFIRA NÃO AGIR A AGIR DEMAIS quando o custo é assimétrico.</dica>
+<dica>DECLARE O QUE NÃO CONSEGUIU. "Não testei Node 18" vale mais que um número inventado.</dica>
+<dica>SE UM bug() NÃO FLIPAR, INVESTIGUE — NÃO FORCE. Ou não corrigiu, ou corrigiu diferente do que a asserção mede, ou a asserção está errada.</dica>
+</dicas>
+
+<handoff titulo="Formato obrigatório da sua resposta">
+Responda com ISTO e mais nada:
+## NOME-DA-SUA-FRENTE
+commit: SHA
+bugs fechados: IDS (N de TOTAL)
+bugs NÃO fechados: IDS + por quê, com evidência
+rede: 0 requisições — COMO PROVOU
+md5 keys.json real: antes=X depois=Y
+md5 ratelimit.json real: antes=X depois=Y
+regressões: NENHUMA | QUAIS, COM A LINHA
+as perguntas falsificáveis: UMA LINHA CADA, COM COMANDO E SAÍDA
+armadilhas de régua que encontrei: QUAIS, E O QUE FIZ
+achados novos que eu vi e NÃO corrigi: LISTA
+o que eu NÃO consegui verificar: LISTA
+</handoff>
+</global>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     PARTE A — BUGS JÁ RESOLVIDOS (contexto, NÃO tocar: tudo verde e
+     coberto por asserções; reabrir qualquer um é regressão)
+     ═══════════════════════════════════════════════════════════════════════  -->
+<resolvidos titulo="O que a Onda 7 fechou (resumo para o orquestrador não refazer)">
+<item familia="corrompe-estado">TTL unilateral no veredito de validação (P1/S2/S5): data no futuro nunca mais eterna; burn sem `at` sobrevive.</item>
+<item familia="corrompe-estado">Chave duplicada no keys.json mantém burn (M2); opts não herdam burn (M1); .env re-lido por stat (D2); CSV espelhado (D3); minúscula com warn (P5).</item>
+<item familia="engana">GATE.PRESENT_UNPROVEN (P2): offline nunca mais diz READY para chave não validada; provesKeyBad unificada.</item>
+<item familia="engana">Fan-out keyless REJEITA com 78 (G4); enum antes do fetch (E1/E2); dedup de tráfego (C3); subAgents 0 vira 1 (C1); ids únicos (C2); noBudget (B1).</item>
+<item familia="engana">Ledger: URL sem host recusada (BUG-14); trema sinalizado no digest (digest-injecao); bloco mínimo (BUG-19); canonicalUrl idempotente (BUG-15); source/ref fora do strip (BUG-13).</item>
+<item familia="gasta-cota">7 flags chegam à Brave no surf-ai (#31); forget() em busca falhada (BUG-34); pergunta vazia 0 queries (BUG-10/11); knobs 0 viram minimo (BUG-24); phantom no prompt do analista.</item>
+<item familia="gasta-cota">Ratelimit: contadores honestos (BUG-22/23), min-wins (24), rps finito (25), learnFromBody parcial (29), paced real (30), cacheKey canônica (BUG-39).</item>
+<item familia="gasta-cota">429 de cota mensal PULA a chave (quota-sleep); anel usa o índice do portão (D1).</item>
+<item familia="gasta-cota">Backoff do OpenRouter dentro do orçamento do harness (84s para 24s); smoke 90s para 6,5s.</item>
+<item familia="instalacao">Symlinks penduradas/relativas (H3/H4); doctor uma voz (H11); harnessDirs() aditivo (H10-parte); LEGACY_NAMES (H12).</item>
+<item familia="cli">exit 2 sem query (#22); --sub-agents= duro (#6); --help sem chave (#29); budget-ms validado (#18); --brief-file= (#16); --mode unificado (#17); helpers por docstring (#7-12); máscara única em keys add.</item>
+<item familia="docs-skill">README: 3 skills derivadas de SKILLS; v${VERSION}; 8 falsas corrigidas. SKILL.md: barreira POR FLUXO com artefato em disco (R4); teto 20% da inferida (B-07); inline não fecha dúvida aberta (B-08); exortações rotuladas como convenção.</item>
+<item familia="html">Surrogate solitário; CR colapsado; U+00AD; U+FFF9-FFFB sinalizado; noncharacters; bateria 91/0.</item>
+<item familia="datas">BUG-07: data inválida nunca silenciosa (warn "unfiltered"); 01/01/2026 e 12026-01-01 congeladas como recusa (2 eq() novas).</item>
+<item familia="crescimento">BUG-09 (Onda 2): janela FIFO 200 + contador total em seen/rejected da Frontier.</item>
+</resolvidos>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     PARTE B — DÍVIDA RESIDUAL: o que falta e COMO resolver
+     (cada front = 1 worktree; ~10 subagentes paralelos; autorização de
+     régua nominal onde marcada; testes OBRIGATÓRIOS dentro da frente)
+     ═══════════════════════════════════════════════════════════════════════  -->
+<fronts>
+
+<front id="F1" nome="onda8-bug33-teto-ondas" risco="run infindável com analista insaciável">
+<arquivos exclusivos="true">
+<arquivo>src/lib/ai/orchestrator.mjs</arquivo>
+<arquivo autorizado-regua="true">test/adversarial/loop-frontier.mjs</arquivo>
+</arquivos>
+<porque-importa> O teto de 50 ondas existe porque um analista que nunca satura poderia rodar para sempre. O bug: o orquestrador PARA no teto sem distinguir "saturou" de "ainda quer mais" — e o stop reason nem avisa que foi corte. </porque-importa>
+<defeitos>
+<defeito id="BUG-33" onde="orchestrator.mjs (loop de ondas) vs loop-frontier.mjs:931-932 (pinos)"> O BUG-33 ficou PINADO por duas asserções de contrato: `eq('and it stops exactly at the 50-wave clamp', r.rounds, 50)` (:931) e `ok('the stop reason names the cap', /wave cap \(50\)/)` (:932) — o cenário do "analista permanentemente insatisfeito" congela o comportamento de corte como se fosse desejado. COMO RESOLVER (autorização nominal de conversão modelo "NOT a contract" da Onda 7): 1) prove empiricamente: implemente o 3º contador de convergência (ex.: rodadas consecutivas sem novas queries admitidas) e a parada ANTES do teto quando o contador indicar saturação; rode a suíte e mostre EXATAMENTE as linhas :931/:932 vermelhas (1 failed/1 failed) — a prova pré-conversão; 2) converta as DUAS para bug() com a MESMA condição + comentário "NOT a contract" (uma descreve o comportamento histórico: "para exatamente no clamp de 50"; a outra: "o stop reason nomeia o cap"); 3) o código novo: ao saturar, o run termina com stop reason próprio ("saturated") e NUNCA gasta ondas à toa; o teto de 50 vira salvaguarda de verdade (só dispara com contador não-zero). 4) mantenha o stress de 400 fronteiras verde (é invariante de memória, não de contagem de ondas — verifique antes de mexer). </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">Com o analista insaciável, o run para por SATURAÇÃO (contador de convergência) ou só no teto?</p>
+<p n="2">O stop reason distingue "saturated" de "wave cap"?</p>
+<p n="3">A prova pré-conversão citada no handoff mostra 1 failed nas linhas :931 e :932 antes da conversão?</p>
+<p n="4">As condições convertidas são byte-idênticas às originais?</p>
+<p n="5">O stress de 400 fronteiras continua verde?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F2" nome="onda8-d6-quota-de-onda" risco="gasta cota: onda sub-preenchida + reserva de verificação consumida">
+<arquivos exclusivos="true">
+<arquivo>src/lib/ai/orchestrator.mjs</arquivo>
+<arquivo>src/lib/ai/heuristics.mjs</arquivo>
+<arquivo autorizado-regua="true">test/adversarial/loop-frontier.mjs</arquivo>
+<arquivo autorizado-regua="true">test/smoke.mjs</arquivo>
+</arquivos>
+<porque-importa> A decisão D6 da Onda 7 adiou BUG-07 e BUG-08 para "onda dedicada". ESTA É A ONDA. São os dois últimos defeitos que custam requisições reais. </porque-importa>
+<defeitos>
+<defeito id="BUG-07" onde="orchestrator.mjs (composição de onda)"> A quota de onda sub-preenche a largura: com --sub-agents 8 e 3 queries planejadas, a onda roda 3 e deixa 5 slots ociosos — cota paga e não usada. COMO RESOLVER: a heurística de composição deve preencher a largura disponível (rodadas de follow-up na MESMA onda até a largura ou saturação), SEM violar as invariantes de stress (popWave nunca devolve mais que a largura; nunca o mesmo nó duas vezes; ordem de prioridade). Atenção: há asserções ok() de stress (400 fronteiras) que devem continuar verdes — a mudança é na COMPOSIÇÃO (quantas ondas para esvaziar a fronteira), não na largura máxima. </defeito>
+<defeito id="BUG-08" onde="orchestrator.mjs (reserva de verificação)"> Com --sub-agents 1, a reserva de verificação consome 100% da onda: o analista nunca vê resultado novo (a onda inteira é gasta verificando). COMO RESOLVER: a reserva deve ser dimensionada como fração da largura com piso/limite (ex.: min(25% da largura, 2) — 1 sub-agent vira 0 reserva, largura cheia para busca), e documentada como decisão (não é bug de aritmética, é política de composição). </defeito>
+</defeitos>
+<nao-faca> NÃO mude o teto de 50 ondas (é o BUG-33, outra frente). NÃO mexa em queryKey/stopwords (rejeitadas).</nao-faca>
+<perguntas-falsificaveis>
+<p n="1">3 queries planejadas com largura 8: a onda roda 3 ou preenche com follow-ups até a largura?</p>
+<p n="2">--sub-agents 1: a reserva de verificação é 0 e a busca usa o slot?</p>
+<p n="3">O stress de 400 fronteiras continua verde (popWave nunca devolve mais que a largura)?</p>
+<p n="4">O comportamento com analista que satura rapidamente não muda (para cedo)?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F3" nome="onda8-bug23-ledger-morto" risco="duas medidas discordam; código morto confunde">
+<arquivos exclusivos="true">
+<arquivo>src/lib/ai/ledger.mjs</arquivo>
+<arquivo autorizado-regua="true">test/adversarial/loop-frontier.mjs</arquivo>
+</arquivos>
+<porque-importa> O BUG-23 foi declarado infechável na Onda 7 porque a régua o prendia com (a) três eq() de contrato em loop-frontier.mjs:581-583 que chamam `l.newSourcesInRound(n)` e (b) um bug() com condição tautológica constante `true`. ESTA ONDA AUTORIZA o desbloqueio — é o último "infechável por régua" que tem resolução de verdade. </porque-importa>
+<defeitos>
+<defeito id="BUG-23" onde="src/lib/ai/ledger.mjs:118"> `newSourcesInRound()` é código morto (definido, nunca chamado) e discorda de `ledger.stats().sources` para resultados sem url. COMO RESOLVER (autorização nominal, modelo "NOT a contract" + prova pré-conversão OBRIGATÓRIA): 1) rode a suíte ANTES: localize as 3 eq() de contrato (:581-583) que usam newSourcesInRound e o bug() tautológico — cole no handoff o trecho e a contagem; 2) converta as 3 eq() para bug() com a MESMA condição (comentário "NOT a contract — media a rota antiga de saturação; removida com o BUG-23") e REMOVA o bug() tautológico (substitua por uma asserção ótima: grep -rn newSourcesInRound = apenas a própria definição — depois de apagar, 0 ocorrências); 3) APAGUE a função morta; 4) confirme que o orquestrador (único consumidor lógico) mede saturação por `ledger.stats().sources` (já é o caso — não mude). </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">`grep -rn newSourcesInRound src test` = 0 depois da sua mudança?</p>
+<p n="2">As 3 conversões citam a prova pré-conversão (1 failed)?</p>
+<p n="3">`ledger.stats().sources` continua sendo a medida de saturação do orquestrador (intacta)?</p>
+<p n="4">loop-frontier 115+ verdes no fim?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F4" nome="onda8-mapa-flags-unico" risco="divergência silenciosa entre CLI e surf-ai">
+<arquivos exclusivos="true">
+<arquivo>src/lib/flags.mjs</arquivo>
+<arquivo>src/lib/ai/orchestrator.mjs</arquivo>
+<arquivo>bin/surf-research-skill.mjs</arquivo>
+</arquivos>
+<porque-importa> O revisor do diff integrado da Onda 7 achou: `SEARCH_ARG_FLAGS` (orchestrator.mjs:621-641) DUPLICA o mapeamento flag-para-arg do bin (bin/surf-research-skill.mjs:258-299). Hoje idênticos; amanhã um diverge e o outro quebra calado (o comentário "the same mapping" não é um guard). </porque-importa>
+<defeitos>
+<defeito id="mapa-duplicado" onde="orchestrator.mjs:621 vs bin/surf-research-skill.mjs:258"> Dois mapas independentes da MESMA tradução flag-para-parametro Brave. COMO RESOLVER (ADDITIVE, sem mudar assinatura): 1) mova o mapa para src/lib/flags.mjs como `SEARCH_ARG_FLAGS` exportado (acréscimo autorizado — R4) com a fusão do que cada lado tem (o bin valida enums e mapeia mode/depth/max; o orchestrator mapeia as 7 flags de busca — UMA tabela com os dois papéis declarados); 2) faça o bin e o orchestrator IMPORTAREM a tabela única (o bin mantém a validação de enum POR LINHA da tabela); 3) zero mudança de comportamento observável: rode as 10 suítes + um probe end-to-end mostrando que as 7 flags chegam ao wire (reuse o bloco das 7 flags da suíte de regressão da busca); 4) exports do orchestrator intactos. </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">`grep -rn SEARCH_ARG_FLAGS src bin` aponta para UMA definição + imports?</p>
+<p n="2">As 7 flags continuam chegando ao wire (probe end-to-end)?</p>
+<p n="3">Enum inválido continua erro de uso antes do fetch?</p>
+<p n="4">Exports idênticos ao HEAD (salvo o acréscimo)?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F5" nome="onda8-sideline-cota-60s" risco="cota esgotada segura a chave por 60s à toa">
+<arquivos exclusivos="true">
+<arquivo>src/lib/ratelimit.mjs</arquivo>
+<arquivo>src/lib/dispatch.mjs</arquivo>
+</arquivos>
+<porque-importa> O sideline de 60s para 429 de cota (o ":304" do ticket) continua: quando a cota mensal acaba, o dispatch deveria saber EXATAMENTE até quando (quotaResetAt já está no ledger) em vez de re-sondar por 60s. </porque-importa>
+<defeitos>
+<defeito id="sideline-60s" onde="dispatch.mjs (proximo de :304) + ratelimit.mjs (ledger)"> O 429 de cota sidelina a chave por 60 s fixos. O ledger do limitador JÁ carrega `quotaResetAt` (a Onda 3 publicou no produtor; a Onda 7 provou que o dispatch o ignora). COMO RESOLVER (aditivo): 1) exporte em ratelimit.mjs um reader do `quotaResetAt` do bucket (acréscimo autorizado — R4: ex.: `quotaResetAtFor(key)`); 2) o dispatch, ao detectar cota esgotada (os 4 sinais da Onda 7), registra o cooldown com o INSTANTE REAL do reset (até quotaResetAt, com teto de segurança — nunca dormir, sempre cooldown saltável); se o reader devolver null/desconhecido, o fallback continua o sideline atual; 3) preserve: 429 de TAXA continua backoff curto; quota mensal continua PULO imediato (0 sleep) — o que muda é o TEMPO do cooldown quando a chave é a única. 4) a asserção "no pior caso o run dorme ~0ms em cota" continua verdadeira (cooldown não é sleep). </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">Com quotaResetAt conhecido, o cooldown da chave esgotada dura até o reset (não 60s fixos)?</p>
+<p n="2">O pior caso de sleep em cota continua ~0ms?</p>
+<p n="3">Sem quotaResetAt (ledger vazio), o fallback de 60s continua intacto?</p>
+<p n="4">Exports: só acréscimo?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F6" nome="onda8-residuos-final" risco="documentação e código que se contradizem">
+<arquivos exclusivos="true">
+<arquivo>src/index.mjs</arquivo>
+<arquivo>.claude/skills/project-router/SKILL.md</arquivo>
+<arquivo>docs/auditoria-prompts.md</arquivo>
+</arquivos>
+<porque-importa> Três pontos onde a letra descreve um mundo que o código não é mais. A Onda 7 corrigiu a classe inteira (README/SKILL.md); sobraram estes três. </porque-importa>
+<defeitos>
+<defeito id="five-codes" onde="src/index.mjs:12"> O comentário diz "All five codes start with BraveKey" — com o `BraveKeyUnproven` (Onda 7, frente F10) são SEIS. COMO RESOLVER: atualizar o comentário e, se houver const de família documentada, citar os 6 nomes (grep para conferir). Arquivo publicado — a doc é o contrato de quem importa. </defeito>
+<defeito id="router-defasado" onde=".claude/skills/project-router/SKILL.md"> O router diz v8.0.0 e a árvore de skills omite a surf-search-agent-skill (a 3ª). COMO RESOLVER: atualizar versão (src/lib/version.mjs é a fonte — cite-a) e a árvore com as 3 skills (surf-research-agent-skill, surf-plan-agent-skill, surf-search-agent-skill), conferindo a lista contra `SKILLS` de src/lib/harness-install.mjs. </defeito>
+<defeito id="b09-identidade" onde="docs/auditoria-prompts.md (B-09)"> A proposta B-09 registra a identidade contábil `A = B + C + G + E + I + F` SEM o H — o SKILL.md vigente tem `A = B + C + G + E + I + H + F` (o H entrou com o B-01). COMO RESOLVER: ERRATA ADITIVA (nunca reescrever história de auditoria): nota indicando que a identidade vigente inclui H e apontando a linha atual no SKILL.md (grep para achar). </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">`grep -c BraveKey src/index.mjs` = 6 (ou a referência correta)?</p>
+<p n="2">O router cita a versão real (src/lib/version.mjs) e as 3 skills?</p>
+<p n="3">A errata do B-09 existe e aponta a linha vigente da identidade?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F7" nome="onda8-limiares-e-decisoes" risco="compensações duplicadas e entradas degeneradas">
+<arquivos exclusivos="true">
+<arquivo>src/lib/providers/brave.mjs</arquivo>
+<arquivo>src/lib/html.mjs</arquivo>
+</arquivos>
+<porque-importa> Três ajustes pequenos, cada um com decisão registrada — a classe "dívida declarada" que esta onda encerra. </porque-importa>
+<defeitos>
+<defeito id="teto-250ms" onde="brave.mjs:96"> O limiar de 250 ms que disfarçava o `paced` mentiroso (BUG-30, corrigido na Onda 7) agora é redundante: o flag paced é honesto. COMO RESOLVER: REMOVA o limiar (a mensagem de progresso passa a refletir só espera real) OU mantenha com comentário "compensação histórica, inofensiva" — escolha UMA, argumente no handoff, e prove que a suíte brave-limits segue 139/0 (a mensagem de pacing aparece nos casos certos). </defeito>
+<defeito id="cauda-data" onde="brave.mjs (regex de isoDay)"> `--start-date 2026-01-01garbage` é silenciosamente estreitado para `2026-01-01` (regex sem âncora de fim). A Onda 7 declarou a direção oposta à acusação do BUG-07 (aceita demais) e inalcançável por argv limpo. COMO RESOLVER (SE decidir agir): âncora de fim na regex de dia ISO + fallback do default com `.slice(0,10)` (senão `--start-date` sozinho vira texto inválido); prove: `2026-01-01garbage` agora gera warn "unfiltered" (nunca silêncio) e `--start-date 2026-01-01` continua aceito. SE preferir NÃO agir, responda "não agi" com o argumento — é resposta válida. </defeito>
+<defeito id="invisible-ops" onde="html.mjs (decisão)"> U+2062/2063 (invisible operators) e U+034F (combining grapheme joiner): a Onda 7 os declarou fora da lista. Estenda a política já decidida: U+2062/2063 são a MESMA classe do U+00AD (apagar — não mudam glifo nem léxico); U+034F é a classe do ZWNJ (manter — junta grafemas em escrita real). Decida e ARGUMENTE no handoff; mantenha a bateria hostil (91+) e os 13 legítimos byte-idênticos. </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">O limiar de 250 ms sumiu (ou está justificado e documentado)? A mensagem de pacing reflete espera real?</p>
+<p n="2">`2026-01-01garbage` gera warn ou é silencioso? (nunca silêncio)</p>
+<p n="3">U+2062/2063: apagados com argumento? U+034F: mantido com argumento?</p>
+<p n="4">Bateria hostil 0 violações; 13 legítimos byte-idênticos?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F8" nome="onda8-regua-cantos" risco="escaneadores evadíveis e changelog mudo">
+<arquivos exclusivos="true">
+<arquivo autorizado-regua="true">test/adversarial/onda7-regressao-nucleo.mjs</arquivo>
+<arquivo>CHANGELOG.md</arquivo>
+</arquivos>
+<porque-importa> Dois cantos que os revisores da Onda 7 deixaram anotados: a prova de definição única evadível e a invalidação de cache não anunciada. </porque-importa>
+<defeitos>
+<defeito id="scan-provesKeyBad" onde="test/adversarial/onda7-regressao-nucleo.mjs (prova de definição única)"> O escaneador casa só `function provesKeyBad` — uma arrow/const escaparia sem alarme. COMO RESOLVER: alargue o padrão para `(function|const|let)\s+provesKeyBad` OU (melhor) use a introspecção: `Object.keys(await import(...preflight...)).filter(k =&gt; k.includes('provesKeyBad'))` + contagem de ocorrências por regex amplo; a suíte continua 69+ e verde. </defeito>
+<defeito id="cache-invalidacao" onde="CHANGELOG.md (nota do BUG-39)"> A Onda 7 mudou o formato da chave de cache (canônica) — o cache existente dos usuários foi invalidado silenciosamente (não é perda de dado, é cache). COMO RESOLVER: UMA linha no CHANGELOG.md (seção da versão em desenvolvimento): "cache invalidado na subida (chave canônica — BUG-39); apenas um re-aquecimento". Não terá asserção — é nota de lançamento. </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">A prova de definição única pega arrow/const? (prove com mutação temporária)</p>
+<p n="2">O CHANGELOG menciona a invalidação do cache?</p>
+<p n="3">npm test exit 0?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F9" nome="onda8-nao-resolviveis-documentar" risco="expectativa errada de quem lê o débito">
+<arquivos exclusivos="true">
+<arquivo>docs/debito-tecnico.md</arquivo>
+</arquivos>
+<porque-importa> Três itens do débito continuam listados como pendentes sendo que DOIS são estruturalmente não-resolvíveis e UM é decisão proibida. O documento deve dizer isso em voz alta, para ninguém re-abrir. </porque-importa>
+<defeitos>
+<defeito id="h10-bug" onde="docs/debito-tecnico.md (H10-bug)"> O bug() H10 (instalador) tem condição de SONDA DE SO (env limpo e homedir presente) — nenhuma mudança de código pode flipá-lo; o lado lib foi fechado na Onda 7 (harnessDirs()). COMO RESOLVER (documental): marcar na seção 6/lista de fechados: "H10 (marcador bug()): sonda de SO, infechável por design; lado lib fechado na Onda 7; marcador mantido como registro histórico". NÃO converter o marcador (habilitaria confusão futura). </defeito>
+<defeito id="atributo-html" onde="docs/debito-tecnico.md (BL-33 família)"> `stripHtml` com tag de atributo contendo maior-que (ex.: title com "a > b"): resolver exige distinguir maior-que dentro de aspas de atributo = tokenizer de atributos do HTML5 = embarcar parser, o que a invariante recusa. COMO RESOLVER (documental): marcar como "não-resolvível por design (embarcar parser quebraria a invariante do tokenizer); comportamento declarado e testado"; a resposta "não dá" da Onda 7 vira registro permanente. </defeito>
+<defeito id="h6-copia" onde="docs/debito-tecnico.md (H6)"> Cópia legada nunca limpa: redesign PROIBIDO (teste por nome reabriria o H13 — instalador apagar skill de terceiro). COMO RESOLVER (documental): marcar como "decisão: não-resolver (H13 guarda); permanece como dívida aceita". </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">O débito agora diz "não-resolvível por design" nos 3 pontos (com o motivo de 1 linha cada)?</p>
+<p n="2">Nenhuma asserção mudou (documento não é testado — mas npm test segue 0)?</p>
+</perguntas-falsificaveis>
+</front>
+
+<front id="F10" nome="onda8-smoke-timing-resto" risco="portão flaky em máquina ocupada">
+<arquivos exclusivos="true">
+<arquivo autorizado-regua="true">test/adversarial/brave-limits.mjs</arquivo>
+</arquivos>
+<porque-importa> A Onda 7 provou que `the first request of a fresh window is not delayed` (firstMs menor que 500, brave-limits:658) é ambiental sob load 50+ (vitests de outro projeto na mesma máquina) — a asserção mede AGENDAMENTO, não pacing. Um portão que fica vermelho por causa de vizinhos faz agentes gastarem horas investigando código são. </porque-importa>
+<defeitos>
+<defeito id="timing-flaky" onde="test/adversarial/brave-limits.mjs:658"> Limiar fixo de 500 ms para o primeiro request de janela fresca. COMO RESOLVER (autorização nominal, NÃO enfraquecer o que mede): a asserção quer provar que uma janela fresca NÃO espera o pacing de 1 rps (o segundo request espera ~1s — medido ao lado). Troque o limiar cego por uma comparação RELATIVA robusta a agendamento: `firstMs &lt; secondMs` (prova que o primeiro não passou pelo pacing) OU eleve o limiar para 1000 ms com comentário citando o incidente da Onda 7 (scheduling sob load 50+ mediu 669-1931 ms). PREFIRA a relativa — mede a MESMA propriedade sem acoplar a um número de máquina. Adicione também a nota no comentário: "provado ambiental na Onda 7 (load 50+ de outros projetos); não é pacing". </defeito>
+</defeitos>
+<perguntas-falsificaveis>
+<p n="1">A asserção nova prova a MESMA propriedade (primeiro request não espera pacing) sem limiar fixo frágil?</p>
+<p n="2">Se o pacing for introduzido de verdade no primeiro request, a asserção fica vermelha? (irrigação)</p>
+<p n="3">Sob load artificial (estresse de CPU), a suíte continua verde? (rode com `stress-ng` se disponível, ou documente a impossibilidade)</p>
+</perguntas-falsificaveis>
+</front>
+
+</fronts>
+
+<integracao titulo="O que o orquestrador faz depois — MUDE PARALELISMO, não qualidade">
+<passo n="1">Recebe os ~10 handoffs e registra cada um no plano de execução.</passo>
+<passo n="2">CRIA UMA WORKTREE POR FRENTE (nomes da seção `nome`), todas do HEAD atual (main@0dcf6ad). MUDE A EXECUÇÃO COM MUITOS SUBAGENTES: dispare TODAS as frentes em paralelo (teto de concorrência do harness; as de docs/baixo risco entram primeiro nos slots livres). Cada subagente: corrige E TESTA a própria frente (npm test completo no baseline e no after + teste novo para o próprio fix quando houver comportamento novo).</passo>
+<passo n="3">Squash-merge UM A UM, nunca em bloco — atribuição de culpa por commit. Depois de cada merge, gate num SNAPSHOT DE INTEGRAÇÃO separado (worktree efêmera int-onda8-FRENTE). Gates em PRIMEIRO PLANO sequencial (o timeout do bash pai mata grupos em background com espera).</passo>
+<passo n="4">A worktree de uma frente só é apagada depois do gate VERDE do snapshot DELA (a branch é o backup até lá).</passo>
+<passo n="5">Prova de contenção ao fim: nenhuma worktree desta execução sobrevive; nenhum arquivo escrito fora das worktrees e da raiz. VIGIE o autofix biome do harness: gstatus + git checkout ANTES de todo merge; se um gate/stage-delta pegar reformat não autorizado, restaure o estado revisado (a Onda 7 teve 4 ocorrências e 1 contaminação de commit — não repita).</passo>
+<passo n="6">Subwaves pós-onda: validação (gate completo no estado integrado, somente leitura) + testes de regressão para os comportamentos novos (F1 saturação, F2 composição de onda, F4 mapa único, F5 quotaResetAt) em arquivos NOVOS test/adversarial/onda8-*.mjs; processadas no COMMIT-FINAL.</passo>
+<passo n="7">Se duas frentes se contradisserem no merge, NÃO escolha pelo mais novo: leia os dois handoffs e decida pelo argumento.</passo>
+<passo n="8">Fim: gate final em $BASE_DIR, EXPLAINER.html (fluxo html-explainer-agent-skill), relatório com a tabela de não-resolvíveis (F9), push e a pergunta de evolução.</passo>
+</integracao>
+
+<regra-final>
+Antes de tudo: FASE 0 do orquestrador. Zero rede, HOME falso, worktree = fronteira. Cada subagente é dono dos arquivos da sua lista — as suítes novas da Onda 7 (onda7-regressao-nucleo/busca/superficie) são da RÉGUA e só se tocam com autorização nominal. As conversões de régua autorizadas (F1, F3, F10) seguem o padrão "NOT a contract" da Onda 7: prova empírica pré-conversão citada no handoff, condição inalterada, comentário. E lembre: a Onda 7 provou que a maioria das "quebras" é ambiental — classifique antes de julgar (R7).
+</regra-final>
+</onda>
