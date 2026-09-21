@@ -129,7 +129,10 @@ async function doFetch(path, params, ctx, { pace = true } = {}) {
 
   const timeout = ctx.timeout || DEFAULT_TIMEOUT;
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort('timeout'), timeout);
+  // Abort with a real AbortError: fetch rejects with the reason AS GIVEN, so
+  // abort('timeout') surfaced a bare string (e.name/e.message undefined) and
+  // every timeout was reported as "Brave network error: undefined".
+  const t = setTimeout(() => ctl.abort(Object.assign(new Error('timeout'), { name: 'AbortError' })), timeout);
   const t0 = Date.now();
   try {
     const res = await fetch(url, {

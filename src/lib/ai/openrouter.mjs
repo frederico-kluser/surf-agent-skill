@@ -330,6 +330,9 @@ export function snapshotForPersist(state) {
     current: (or.current || 0) < n ? or.current : 0,
     burned: (or.burned || []).filter(b => b.index < n),
     cooldowns: (or.cooldowns || []).filter(c => c.index < n),
+    // Cached validation verdicts belong to the stored keys too; dropping the
+    // field here wiped them from keys.json on every surf-ai save.
+    validated: (or.validated || []).filter(v => v.index < n),
   };
   return snap;
 }

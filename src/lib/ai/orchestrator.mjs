@@ -653,7 +653,14 @@ async function runOneSearch(node, { state, searchFlags, perSearchMax, searchMode
   const args = {
     query: node.q,
     mode: searchMode || undefined,
-    ...(userMax != null ? { max: userMax } : (searchMode ? {} : { max: perSearchMax })),
+    // `--search-mode fast|slow` picks the adapter's own count (5/20) and sends
+    // no `max`. `--search-mode normal` is the tier's name too, so it means
+    // "the default": it goes on the wire exactly like omitting the flag —
+    // max = the tier's perSearchMax — instead of falling through to the
+    // adapter's normal (10) and silently costing twice the quota (BUG-25).
+    ...(userMax != null
+      ? { max: userMax }
+      : (searchMode && searchMode !== 'normal' ? {} : { max: perSearchMax })),
   };
   // Search flags the caller actually passed reach the adapter. An empty string
   // ("--domains=" with nothing after the =) is not a value.
