@@ -559,10 +559,14 @@ export async function loadState({ skipMonthlyReset = false } = {}) {
         raw = normalizeFullState(parsed);
       }
     }
-  } else {
-    await saveStateAtomic(raw);
-    try { diskText = await readFile(KEYS_FILE, 'utf8'); } catch { diskText = null; }
   }
+  // No keys.json yet: do NOT write a blank one here. That write was blind (no
+  // snapshot, no merge), so two processes starting on an empty config dir at
+  // once — say, two `keys add` — each created the file and the second creation
+  // erased the first process's key while both reported "✓ added". Leaving
+  // diskText null means the first real save goes through the normal path:
+  // saveStateAtomic() sees a file that appeared since load and merges it
+  // (base = blank) instead of overwriting it.
   if (!skipMonthlyReset) applyMonthlyReset(raw);
   // The base for the three-way merge: what this process believes was on disk
   // when it started, and the exact bytes it saw there.

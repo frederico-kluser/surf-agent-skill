@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 import { loadState, loadCliState, envKeysFor, saveStateAtomic, setValidation, KEYS_FILE, PROVIDERS, SEARCH_PROVIDERS } from '../src/lib/state.mjs';
 import { validateKey, formatValidation } from '../src/validators/index.mjs';
+import { removeKeyAt } from '../src/lib/keys-cmd.mjs';
 // Namespace import on purpose. SKILLS IS exported now, but a named import of a
 // binding that ever goes away is a link-time SyntaxError — the whole CLI dies,
 // not just the doctor. Through the namespace, a missing SKILLS is a plain
@@ -204,6 +205,7 @@ async function cmdList() {
 async function cmdValidate(providerFilter) {
   const state = await loadState();
   let any = false;
+  let dirty = false;
   for (const p of PROVIDERS) {
     if (providerFilter && p !== providerFilter) continue;
     const ps = state[p];
@@ -214,8 +216,17 @@ async function cmdValidate(providerFilter) {
       stdout.write(`  [${i}] ${mask(ps.keys[i])} → `);
       const r = await validateKey(p, ps.keys[i]);
       out(formatValidation(r));
+      // Persist the verdict just proven, like `keys add` does — only a
+      // POSITIVE one (a negative from a network blip must never be cached for
+      // 7 days). Without this, "✓ valid" printed here changed nothing on disk
+      // and the gate kept answering 78 BraveKeyInvalid from a stale verdict.
+      if (r && r.valid) {
+        setValidation(state, p, i, { ok: true, status: r.statusCode, reason: null });
+        dirty = true;
+      }
     }
   }
+  if (dirty) await saveStateAtomic(state);
   if (!any) out(providerFilter ? `No keys for ${providerFilter}.` : 'No keys configured. Add one with `surf add`.');
 }
 
@@ -236,9 +247,9 @@ async function cmdRemove(args) {
     err(`Invalid index ${indexStr}; ${provider} has ${ps.keys.length} key${ps.keys.length === 1 ? '' : 's'} (0-${ps.keys.length - 1}).`);
     process.exit(1);
   }
-  const removed = ps.keys.splice(idx, 1)[0];
-  ps.burned = ps.burned.filter(b => b.index !== idx).map(b => ({ ...b, index: b.index > idx ? b.index - 1 : b.index }));
-  if (ps.current >= ps.keys.length) ps.current = 0;
+  // Same bookkeeping as `keys remove`: current shifts, and burned/cooldowns/
+  // validated are reindexed — verdicts are per-index and must follow the key.
+  const removed = removeKeyAt(state, provider, idx);
   await saveStateAtomic(state);
   out(`✓ removed ${provider} key #${idx} (${mask(removed)})`);
 }

@@ -289,6 +289,33 @@ export async function keysAdd(pos, flags) {
   };
 }
 
+// The ONE place a key leaves the ring. `surf remove` (bin/surf.mjs) and
+// `keys remove` both go through here: a second copy that remapped only
+// `burned` left `validated`/`cooldowns` on their old indexes, so the removed
+// key's verdict was attributed to its neighbour (the gate then trusted a key
+// Brave had rejected, or refused a good one) and `current` was reset to 0.
+export function removeKeyAt(state, provider, idx) {
+  const keys = state[provider].keys;
+  const [removedKey] = keys.splice(idx, 1);
+  // `current` is an index into the same array, so it shifts with everything
+  // else. Clamping only when it ran off the end left it pointing at the NEXT
+  // key whenever a key below it was removed.
+  const p = state[provider];
+  if (!Number.isInteger(p.current) || p.current < 0) p.current = 0;
+  else if (idx < p.current) p.current -= 1;
+  if (p.current >= keys.length) p.current = 0;
+
+  const reindex = (list) => (list || [])
+    .filter(x => x.index !== idx)
+    .map(x => (x.index > idx ? { ...x, index: x.index - 1 } : x));
+  p.burned = reindex(p.burned);
+  p.cooldowns = reindex(p.cooldowns);
+  // Validation verdicts are per-INDEX; leaving them unshifted would attribute
+  // one key's verdict to another.
+  p.validated = reindex(p.validated);
+  return removedKey;
+}
+
 export async function keysRemove(pos, flags) {
   const provider = requireProvider(flags);
   const target = pos[0];
@@ -308,23 +335,7 @@ export async function keysRemove(pos, flags) {
   }
   if (idx < 0 || idx >= keys.length) throw new Error(`no key at '${target}' for provider '${provider}'`);
 
-  const [removedKey] = keys.splice(idx, 1);
-  // `current` is an index into the same array, so it shifts with everything
-  // else. Clamping only when it ran off the end left it pointing at the NEXT
-  // key whenever a key below it was removed.
-  const p = state[provider];
-  if (!Number.isInteger(p.current) || p.current < 0) p.current = 0;
-  else if (idx < p.current) p.current -= 1;
-  if (p.current >= keys.length) p.current = 0;
-
-  const reindex = (list) => (list || [])
-    .filter(x => x.index !== idx)
-    .map(x => (x.index > idx ? { ...x, index: x.index - 1 } : x));
-  state[provider].burned = reindex(state[provider].burned);
-  state[provider].cooldowns = reindex(state[provider].cooldowns);
-  // Validation verdicts are per-INDEX; leaving them unshifted would attribute
-  // one key's verdict to another.
-  state[provider].validated = reindex(state[provider].validated);
+  const removedKey = removeKeyAt(state, provider, idx);
   await saveStateAtomic(state);
   return {
     provider,
