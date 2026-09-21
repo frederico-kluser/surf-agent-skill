@@ -2,23 +2,19 @@
 name: surf-plan-agent-skill
 description: >-
   Generates a research-grounded execution plan for a coding task. MUST BE USED
-  whenever the user asks for a plan, design, architecture, or spec — including
+  whenever the user asks for a plan, design, architecture or spec — including
   in plan/approval mode, BEFORE any plan is presented for approval. Reads the
-  project, runs MANDATORY web research (surf-search-normal / surf-ai via Bash —
-  Brave Search only, with no fallback provider underneath; the harness's
-  WebSearch/WebFetch is used ONLY when the harness itself denies Bash, never as
-  a substitute for a missing or burned Brave key), interviews the user
-  with research-backed options, and only then delivers a plan with cited
-  sources and a research ledger. For vague, high-stakes, or hard-to-reverse
-  work — or when the user explicitly says "raise all my doubts first",
-  "exhaustive plan", "don't start until everything is clear", "levante todas
-  as dúvidas", "plano exaustivo" — the skill automatically switches into its
-  Deep mode: a full ambiguity sweep before any question is asked. Triggers on
-  "make a plan", "plan this", "design…", "architect…", "spec this out",
-  "what's the best way to…", "faça um plano", "planeje isso", "monte um
-  plano", "arquitete". Do NOT use for trivial one-line edits — only when the
-  task warrants a written plan (≥30 min implementation, ≥3 files, or any
-  architectural decision).
+  project, runs MANDATORY web research (surf-search-normal / surf-ai via Bash
+  — Brave Search only, no fallback; WebSearch/WebFetch only when the harness
+  itself denies Bash, never for a missing or burned key), interviews the user
+  with research-backed options, then delivers a plan with cited sources and a
+  research ledger. Vague, high-stakes or hard-to-reverse work — or "raise all
+  my doubts first", "exhaustive plan", "levante todas as dúvidas", "plano
+  exaustivo" — switches to Deep mode: a full ambiguity sweep before any
+  question. Triggers: "make a plan", "plan this", "design…", "architect…",
+  "spec this out", "faça um plano", "planeje isso", "monte um plano",
+  "arquitete". NOT for trivial edits — only work that warrants a written plan
+  (≥30 min, ≥3 files, or an architectural decision).
 license: MIT
 argument-hint: "[task to plan, e.g. 'add rate limiting to the Express API']"
 allowed-tools: Bash(surf-search-normal:*), Bash(surf-search-unlimit:*), Bash(surf-research-skill:*), Bash(surf-plan-skill:*), Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, AskUserQuestion

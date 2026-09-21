@@ -49,12 +49,14 @@ proposed. See "Deep mode" below.
 |---|---|---|
 | A | `surf-research-skill` CLI via Bash | Default. Brave Search, key rotation, batching, rate-paced parallel fan-out. |
 | A-manual | raw `surf-research-skill search` / `search-parallel` via Bash | When `surf-ai` is unavailable or you need raw results without synthesis. |
-| B | Harness-native `WebSearch` / `WebFetch` | Bash unavailable, denied, or blocked by mode (plan mode); CLI missing or all keys burned. |
+| B | Harness-native `WebSearch` / `WebFetch` | ONLY when the harness itself denies Bash (unavailable, denied, or blocked by mode). Never for a missing, invalid, burned or cooling Brave key: that is exit 78 — STOP and report the gate message verbatim. |
 | C | None | Halt: user explicitly chooses between aborting and an "NOT WEB-RESEARCHED"-labeled plan. |
 
-The layer is resolved in Phase 0 and recorded in the ledger. Mid-flow Layer A
-failures (burned key, timeout, denied call) downgrade to B for the remaining
-calls — research never silently stops.
+The layer is resolved in Phase 0 and recorded in the ledger. Mid-flow, only a
+denied/blocked Bash call downgrades the remaining calls to B. Exit 78 (missing,
+invalid, burned or cooling key) is a configuration failure: stop, report the
+gate message verbatim, and let the user fix the key — no Layer B, no retry.
+A timeout is retried once with `surf-search-normal` (which budgets itself).
 
 ## Delegated research (subagent/swarm)
 
@@ -79,9 +81,10 @@ an option, never a requirement.
    New doubts enter the **Ambiguity Register** (Deep mode) or become the next
    wave's targets.
 4. **Iterate:** if new doubts survive review and you are under the **3-wave
-   cap** (inherited from `surf-research-agent-skill` rule 7 — delegated mode does
-   NOT raise it), re-brief and dispatch again. Stop when saturated or the cap
-   is hit; record remaining gaps.
+   cap** (a limit of this delegated mode — deliberately tighter than
+   `surf-research-agent-skill`'s own 6-burst convergence cap, because planning
+   research is narrower than open research), re-brief and dispatch again. Stop
+   when saturated or the cap is hit; record remaining gaps.
 
 ### Fallback
 
@@ -159,7 +162,7 @@ the same 3 queries as parallel WebSearch calls (Layer B). Distill:
 - 2–3 common mistakes
 - 1–2 security/performance gotchas
 
-Cost (Layer A): ~6 Brave requests (~3¢) + ~10 s. Acceptable for any non-trivial
+Cost (Layer A): 3 Brave requests (~1.5¢) + ~10 s. Acceptable for any non-trivial
 plan.
 
 ### Open the conversation
@@ -190,7 +193,7 @@ and contradiction-resolution protocol.
 Why: verify the user's choices against the very-latest state of the art.
 Catches "you chose X but X v2 dropped support for Y last month".
 
-How: ONE batched search with the user's chosen approach. ~6 credits. If
+How: ONE batched search with the user's chosen approach. 2–3 credits. If
 contradictions appear, flag them BEFORE writing the plan. After this, the
 research lock opens — and only after.
 
@@ -259,13 +262,13 @@ GitHub, GitLab, Bitbucket, Cursor, Plannotator, and most other viewers.
 ## Cost discipline
 
 A typical **Normal** plan uses (Layer A):
-- 1 batch (baseline): 3 queries, ~6 credits, ~10 s
-- 3–5 targeted (clarify): 1 query each, ~5 credits, ~3 s each
-- 1 batch (synthesis): 2–3 queries, ~5 credits, ~8 s
+- 1 batch (baseline): 3 queries, 3 credits, ~10 s
+- 3–5 targeted (clarify): 1 query each, 3–5 credits, ~3 s each
+- 1 batch (synthesis): 2–3 queries, 2–3 credits, ~8 s
 
-Total: ~15–20 Brave requests, ~30 s of network time (more on a 1 req/s plan,
-where surf paces the fan-out). At $5/1,000 requests that is under 10¢ a plan;
-on a legacy 2,000/month key, ~100 plans.
+Total: ~8–11 Brave requests, ~15 s of network time (more on a 1 req/s plan,
+where surf paces the fan-out). At $5/1,000 requests that is under 6¢ a plan;
+on a legacy 2,000/month key, ~200 plans.
 
 A typical **Deep** plan adds the grounding fan-out on top: roughly 1 query
 per Register item, run concurrently via `search-parallel` (`--sub-agents=N`) rather than

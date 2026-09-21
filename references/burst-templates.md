@@ -166,7 +166,7 @@ version has its origin cited as `file:line`.
 ## Project facts
 | Fact | Value | Source |
 |------|-------|-------|
-| Runtime | node>=18 | package.json:71 |
+| Runtime | node>=18 | package.json:57 |
 
 ## Does the subject already exist in the code?
 [Where, how, and what that implies — or "Does not exist"]

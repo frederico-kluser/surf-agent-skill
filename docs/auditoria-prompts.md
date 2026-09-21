@@ -1,5 +1,9 @@
 # Auditoria dos prompts do surf-agent-skill v8.0.1
 
+> **RELATÓRIO HISTÓRICO** — Onda 1 da auditoria adversarial (2026-08-29/30, base `0f7126e`, v8.0.1).
+> Os `arquivo:linha` citados abaixo refletem a árvore daquela época, não o HEAD atual; o estado vivo
+> está no `CHANGELOG.md`, nos SKILL.md e nas suítes de `npm test`. Leia como registro, não como especificação.
+
 Auditoria adversarial dos **prompts** (`SKILL.md`, `skills/surf-plan-agent-skill/SKILL.md`,
 `references/*.md`) contra o **código real** (`src/`, `bin/`, `package.json`).
 Nenhum arquivo auditado foi editado. Toda afirmação abaixo cita `arquivo:linha`

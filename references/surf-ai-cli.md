@@ -4,7 +4,7 @@ Isto é referência para o **orquestrador**, que nunca executa estes comandos.
 Quem executa são os sub-agentes de dúvida. O orquestrador lê esta página para
 escrever prompts de delegação corretos.
 
-O pacote instala **três** skills, uma por harness (`src/lib/harness-install.mjs:153-155`),
+O pacote instala **três** skills, uma por harness (`SKILLS` em `src/lib/harness-install.mjs:261-265`),
 e vale saber qual delas o sub-agente vai seguir:
 
 | Skill | Aponta para | Para quê |
@@ -75,9 +75,9 @@ para briefs longos.
 | `--sub-agents N` | 10 | Buscas simultâneas, máx 20. Também aceita `--sub-agents=N`. É a largura do pool de workers; no unlimit, também a largura de cada onda. No modo normal, baixar deixa a onda mais lenta, não corta queries. Acima do que o plano Brave permite, enfileira (não falha). |
 | `--concurrency N` | — | Alias obsoleto de `--sub-agents`. |
 | `--max-depth N` | 2 (normal) / 3 (unlimit) | Até onde um ramo desce, máx 6. Profundidade 0 são as queries do plano. |
-| `--max N` | 5 (normal) / 8 (unlimit) | Resultados por busca, faixa 1–20. **Só o `--max` explícito vence o `--search-mode`**: sem `--max`, quem passa `--search-mode` recebe o tier do modo (5 / 10 / 20), não o 5/8 desta coluna (`src/lib/ai/orchestrator.mjs:577-583`). |
+| `--max N` | 5 (normal) / 8 (unlimit) | Resultados por busca, faixa 1–20. **Só o `--max` explícito vence o `--search-mode`**: sem `--max`, `--search-mode fast\|slow` não manda `max` nenhum e o adapter usa a contagem do modo (5/20), e `--search-mode normal` manda o padrão do tier — o mesmo 5/8 desta coluna, nunca o 10 do adapter (`src/lib/ai/orchestrator.mjs:653-663`). |
 | `--max-rounds N` | 6 (só unlimit) | Teto duro 50 |
-| `--search-mode` | normal | `fast` \| `normal` \| `slow` → 5 / 10 / 20 resultados. Inerte se você passar `--max`. |
+| `--search-mode` | normal | `fast` \| `normal` \| `slow`. No `surf-ai`: `fast`/`slow` mandam só o modo e o adapter usa a contagem dele (`fast: 5, normal: 10, slow: 20`, `src/lib/providers/brave.mjs:69`); `normal` é o nome do tier default — manda `max` = o padrão do bin (5/8), idêntico a omitir a flag. Inerte se você passar `--max`. |
 | `--ai-model <slug>` | `deepseek/deepseek-v4-pro` | Sobrescreve o LLM |
 | `--budget-ms N` | autodetectado | **Só vale em `surf-search-normal`.** Em `unlimit` é ignorado incondicionalmente — o modo roda sem orçamento de tempo, e quem interrompe é o timeout do harness (exit 143), não o surf. Passar `--budget-ms` para `unlimit` não muda nada; o que limita a duração lá é `--max-rounds`. |
 | `--no-budget` | off | Disable self-budget abort — let calls run to provider's per-request ceiling. No-limit harnesses only (Pi core). |
@@ -114,21 +114,21 @@ A fonte da verdade é `renderJson` em `src/lib/ai/render.mjs:186-203`. Ela emite
 | Chave de topo | Tipo | Onde o código escreve |
 |---|---|---|
 | `operation` | literal `"surf-ai"` | `render.mjs:188` |
-| `mode` | `"normal"` \| `"unlimit"` | `orchestrator.mjs:547` |
-| `answer` | string, markdown com `[n]` | `orchestrator.mjs:548` |
-| `synthesized` | boolean | `orchestrator.mjs:499`, `:523` — **`false` = você tem evidência, não síntese** |
-| `rounds` | int, ondas executadas | `orchestrator.mjs:550` (`rounds: round`) |
-| `waves` | int, **idêntico a `rounds`** | `orchestrator.mjs:551` — sinônimo, não some um do outro |
-| `frontier` | objeto ou `null` | `frontier.toJSON()`, `frontier.mjs:295-314` |
-| `stop_reason` | string livre | `orchestrator.mjs:553` — conjunto abaixo |
-| `plan` | objeto | `normalizePlan`, `orchestrator.mjs:587-608` |
-| `analysis` | objeto ou `null` | `normalizeAnalysis`, `orchestrator.mjs:619-638`. **É `null` em `normal`** — a análise só roda entre ondas |
-| `sources` | array | `ledger.sourcesList()`, `ledger.mjs:179-181` |
-| `ledger` | objeto | `ledger.toJSON()`, `ledger.mjs:255-261` |
-| `diagnostics` | objeto | `orchestrator.mjs:199-206` |
-| `elapsed_ms` | int | `orchestrator.mjs:559` |
+| `mode` | `"normal"` \| `"unlimit"` | `orchestrator.mjs:597` |
+| `answer` | string, markdown com `[n]` | `orchestrator.mjs:598` |
+| `synthesized` | boolean | `orchestrator.mjs:549`, `:573` — **`false` = você tem evidência, não síntese** |
+| `rounds` | int, ondas executadas | `orchestrator.mjs:600` (`rounds: round`) |
+| `waves` | int, **idêntico a `rounds`** | `orchestrator.mjs:601` — sinônimo, não some um do outro |
+| `frontier` | objeto ou `null` | `frontier.toJSON()`, `frontier.mjs:381-402` |
+| `stop_reason` | string livre | `orchestrator.mjs:603` — conjunto abaixo |
+| `plan` | objeto | `normalizePlan`, `orchestrator.mjs:675-696` |
+| `analysis` | objeto ou `null` | `normalizeAnalysis`, `orchestrator.mjs:707-725`. **É `null` em `normal`** — a análise só roda entre ondas |
+| `sources` | array | `ledger.sourcesList()`, `ledger.mjs:240-242` |
+| `ledger` | objeto | `ledger.toJSON()`, `ledger.mjs:325-331` |
+| `diagnostics` | objeto | `orchestrator.mjs:223-230` |
+| `elapsed_ms` | int | `orchestrator.mjs:609` |
 
-### `frontier` — `frontier.mjs:295-314`
+### `frontier` — `frontier.mjs:381-402`
 
 ```json
 {
@@ -145,12 +145,12 @@ A fonte da verdade é `renderJson` em `src/lib/ai/render.mjs:186-203`. Ela emite
 `pending_queries` é a lista **nominal** das queries que ficaram na fila — o
 contador sozinho diz que uma dúvida ficou aberta mas nunca **qual**, e uma
 dúvida que você não sabe nomear é uma dúvida que você não pode ir resolver.
-Cortada em 50 nós (`PENDING_CAP`, `frontier.mjs:296`); quando corta, o array
+Cortada em 50 nós (`PENDING_CAP`, `frontier.mjs:382`); quando corta, o array
 ganha uma última entrada `"… and N more queued queries not listed"` **e**
 `pending_queries_omitted` traz o N. `rejected` é cortado em 50 itens, com o
 total em `rejected_total`.
 
-### `plan` — `orchestrator.mjs:600-607`
+### `plan` — `orchestrator.mjs:688-694`
 
 ```json
 {
@@ -163,7 +163,7 @@ total em `rejected_total`.
 
 `sub_questions` é **snake_case**. Não existe `subQuestions`.
 
-### `analysis` — `orchestrator.mjs:619-638`
+### `analysis` — `orchestrator.mjs:707-725`
 
 `null` em `surf-search-normal` (a análise só roda **entre** ondas, e `normal`
 tem uma só). Em `unlimit`, o objeto do analista da última onda:
@@ -180,11 +180,11 @@ tem uma só). Em `unlimit`, o objeto do analista da última onda:
 `open_points` é o outro lado de `frontier.pending_queries`: aquele é o que
 ficou na fila, este é o que o analista sabe que não fechou. Os dois são
 impressos como **Open questions** na saída renderizada, com ou sem `--ledger`
-(`render.mjs:87-122`). `open_points` e `branches_to_close` são garantidamente
+(`render.mjs:87-123`). `open_points` e `branches_to_close` são garantidamente
 arrays de string e `next_queries` array de objeto — a normalização acontece
 depois de as buscas já terem sido pagas, então ela degrada, nunca lança.
 
-### `sources` e `ledger` — `ledger.mjs:120-135`, `:153-162`, `:255-261`
+### `sources` e `ledger` — `ledger.mjs:129-138`, `:213-222`, `:325-331`
 
 Cada fonte é `{ n, url, title, date }`. A chave do número de citação é **`n`** —
 o mesmo `[n]` que aparece no `answer`. Não existe `index`.
@@ -203,10 +203,10 @@ o mesmo `[n]` que aparece no `answer`. Não existe `index`.
 ```
 
 Uma linha com `ok: false` **não tem** `provider`/`latency_ms`/`credits`; tem
-`error: { code, message }` e `results: []` (`ledger.mjs:106-118`). Falha é
+`error: { code, message }` e `results: []` (`ledger.mjs:143-153`). Falha é
 linha, nunca é silêncio.
 
-### `diagnostics` — `orchestrator.mjs:199-206`, `:216-222`
+### `diagnostics` — `orchestrator.mjs:223-230`, `:240-245`
 
 ```json
 {
@@ -224,7 +224,7 @@ linha, nunca é silêncio.
 `models` (plural) é a **cadeia** tentada, não o modelo usado. O modelo que de
 fato respondeu é `diagnostics.llm_calls[-1].model` — é assim que o rodapé
 renderizado o obtém (`render.mjs:169`). `budget_ms` é `null` em `unlimit`
-(`orchestrator.mjs:205`). `effective_parallelism` é `null` quando o RPS do plano
+(`orchestrator.mjs:229`). `effective_parallelism` é `null` quando o RPS do plano
 Brave não pôde ser determinado. `degraded` **vazio** é o caminho feliz.
 
 ## Campos que NÃO existem
@@ -237,14 +237,14 @@ está. Se o seu prompt ainda cita um destes, troque:
 
 | Nome fantasma | O campo real | `grep -rn` que prova |
 |---|---|---|
-| `diagnostics.queriesFailed` | `ledger.stats.failed` | `ledger.mjs:158` |
-| `diagnostics.queriesTotal` | `ledger.stats.queries` | `ledger.mjs:156` |
-| `diagnostics.uniqueSources` | `ledger.stats.sources` | `ledger.mjs:159` |
-| `diagnostics.rounds` | `rounds` / `waves`, **no topo** | `orchestrator.mjs:550` |
-| `diagnostics.durationMs` | `elapsed_ms`, **no topo** | `orchestrator.mjs:559` |
-| `diagnostics.model` (singular) | `diagnostics.llm_calls[-1].model`, ou a cadeia em `diagnostics.models` | `orchestrator.mjs:217`, `:202` |
-| `plan.subQuestions` | `plan.sub_questions` | `orchestrator.mjs:602` |
-| `sources[].index` | `sources[].n` | `ledger.mjs:128` |
+| `diagnostics.queriesFailed` | `ledger.stats.failed` | `ledger.mjs:218` |
+| `diagnostics.queriesTotal` | `ledger.stats.queries` | `ledger.mjs:216` |
+| `diagnostics.uniqueSources` | `ledger.stats.sources` | `ledger.mjs:219` |
+| `diagnostics.rounds` | `rounds` / `waves`, **no topo** | `orchestrator.mjs:600` |
+| `diagnostics.durationMs` | `elapsed_ms`, **no topo** | `orchestrator.mjs:609` |
+| `diagnostics.model` (singular) | `diagnostics.llm_calls[-1].model`, ou a cadeia em `diagnostics.models` | `orchestrator.mjs:226`, `:227` |
+| `plan.subQuestions` | `plan.sub_questions` | `orchestrator.mjs:690` |
+| `sources[].index` | `sources[].n` | `ledger.mjs:181` |
 
 `grep -rn 'queriesFailed\|queriesTotal\|uniqueSources\|durationMs\|subQuestions' src/ bin/`
 não devolve **nada**. É o teste de um minuto que faltou.
@@ -254,15 +254,15 @@ não devolve **nada**. É o teste de um minuto que faltou.
 Quatro sinais, nesta ordem:
 
 1. **`ledger.stats.failed`** — quantas buscas falharam, de `ledger.stats.queries`
-   (`ledger.mjs:153-162`). Maior que zero significa cobertura mais fina do que
+   (`ledger.mjs:213-222`). Maior que zero significa cobertura mais fina do que
    parece; rebaixe a confiança declarada no handoff.
 2. **`synthesized`** — booleano de topo, `true` só quando a síntese pelo LLM
-   realmente produziu a resposta (`orchestrator.mjs:499`, `:523`). **`false`
+   realmente produziu a resposta (`orchestrator.mjs:549`, `:573`). **`false`
    significa que o que você tem é evidência citada montada
    deterministicamente, não uma síntese** — e isso tem de ser dito ao usuário,
    não virar rodapé.
 3. **`diagnostics.degraded`** — array de `{stage, reason}`
-   (`orchestrator.mjs:204`). Os estágios que degradam são `plan`, `analyze` e
+   (`orchestrator.mjs:228`). Os estágios que degradam são `plan`, `analyze` e
    `synthesize`. Na saída renderizada aparece como
    `> ⚠ Degraded stage(s): **<stage>** (<reason>)` (`render.mjs:176`).
 4. **`frontier.pending` + `frontier.pending_queries`** — quantas dúvidas
@@ -279,30 +279,30 @@ frase, e o texto do analista pode entrar em duas delas.
 
 | Frase | Linha | Significa |
 |---|---|---|
-| `normal mode: a single wave by design` | `:353` | fim normal do modo `normal` |
-| `hit the wave cap (N)` | `:354` | bateu em `--max-rounds` |
-| `ran out of time budget` | `:355` | só em `normal`; `unlimit` não tem orçamento de tempo |
-| `two consecutive waves returned no new sources (saturated)` | `:359` | saturação de fontes |
-| `two consecutive waves admitted no new queries` | `:459` | saturação de queries |
-| `the analyst judged the question resolved` (ou o texto do analista) | `:417` | resolvido |
-| `the analyst reported source saturation` (ou o texto do analista) | `:422` | saturação declarada |
-| `the analyst proposed no follow-up (…) and the frontier is empty` | `:474-476` | fronteira secou sem candidatos |
-| `every follow-up the analyst proposed had already been run; N duplicate(s) rejected` | `:483` | o analista repetiu queries já rodadas |
-| `every follow-up the analyst proposed was refused at the admission gate (…)` | `:484` | recusa por profundidade / ramo fechado / prioridade |
-| `the frontier had no admissible queries left` | `:297` | onda vazia |
-| `the analysis model was unavailable; stopped after this wave` | `:392` | LLM fora do ar entre ondas |
-| `the analyst returned an unusable reply; stopped after this wave` | `:404` | resposta do analista não é uma análise |
-| `completed the planned wave` | `:493` | **só quando `rounds > 0`** |
-| `no wave ran: all N planned queries were refused at the admission gate (…)` | `:657-663` | plano 100% filtrado |
-| `no wave ran: the planner produced no query at all` | `:659` | planejador vazio |
-| `no wave ran: the frontier was empty before the first wave` | `:660` | nada foi proposto |
+| `normal mode: a single wave by design` | `:391` | fim normal do modo `normal` |
+| `hit the wave cap (N)` | `:392` | bateu em `--max-rounds` |
+| `ran out of time budget` | `:393` | só em `normal`; `unlimit` não tem orçamento de tempo |
+| `two consecutive waves returned no new sources (saturated)` | `:397` | saturação de fontes |
+| `two consecutive waves admitted no new queries` | `:509` | saturação de queries |
+| `the analyst judged the question resolved` (ou o texto do analista) | `:467` | resolvido |
+| `the analyst reported source saturation` (ou o texto do analista) | `:472` | saturação declarada |
+| `the analyst proposed no follow-up (…) and the frontier is empty` | `:524-526` | fronteira secou sem candidatos |
+| `every follow-up the analyst proposed had already been run; N duplicate(s) rejected` | `:533` | o analista repetiu queries já rodadas |
+| `every follow-up the analyst proposed was refused at the admission gate (…)` | `:534` | recusa por profundidade / ramo fechado / prioridade |
+| `the frontier had no admissible queries left` | `:329` | onda vazia |
+| `the analysis model was unavailable; stopped after this wave` | `:442` | LLM fora do ar entre ondas |
+| `the analyst returned an unusable reply; stopped after this wave` | `:454` | resposta do analista não é uma análise |
+| `completed the planned wave` | `:543` | **só quando `rounds > 0`** |
+| `no wave ran: all N planned queries were refused at the admission gate (…)` | `:749-750` | plano 100% filtrado |
+| `no wave ran: the planner produced no query at all` | `:747` | planejador vazio |
+| `no wave ran: the frontier was empty before the first wave` | `:748` | nada foi proposto |
 
 Duas armadilhas que já existiram e agora não existem mais, e que o seu prompt
 não deve reintroduzir:
 
 - **`completed the planned wave` não é mais o valor inicial.** Ele começava
   assim, e um plano recusado inteiro no portão de admissão reportava `rounds: 0`
-  e "onda completada" na mesma respiração (`orchestrator.mjs:280-284`). Hoje um
+  e "onda completada" na mesma respiração (`orchestrator.mjs:305-313`). Hoje um
   plano 100% filtrado reporta **as queries recusadas e o porquê**, via
   `noWaveReason` — e `frontier.rejected[].reason` tem o detalhe.
 - **Saturação de fontes e saturação de queries são duas paradas distintas.**
@@ -310,7 +310,7 @@ não deve reintroduzir:
   contagem de "esta onda não admitiu nada" e vice-versa — nenhuma das duas secas
   chegava a 2, e a única coisa que parava uma run teimosa era o teto de 50
   ondas. Hoje são `wavesWithoutNewSources` e `wavesWithoutAdmission`
-  (`orchestrator.mjs:289-290`), com uma frase cada.
+  (`orchestrator.mjs:314-315`), com uma frase cada.
 
 ## Setup — uma vez só
 
@@ -325,13 +325,13 @@ surf-research-skill gate            # valida a chave Brave de graça: 0 = ok, 78
 `cache-clear` e `cost` **não passam pelo portão da chave** — todos saem 0 sem
 chave Brave nenhuma. Nenhum deles serve para provar que a chave existe. Quem
 prova é `gate`, ou a primeira busca de verdade.
-(`NO_KEYS_NEEDED`, `bin/surf-research-skill.mjs:839-843`.)
+(`NO_KEYS_NEEDED`, `bin/surf-research-skill.mjs:843-847`.)
 
 ### `gate` — a sonda de FASE 0
 
 `gate` também está isento do portão, e é isso que o torna a sonda: ele é o
 **único verbo que responde sem chave E reporta a resposta no código de saída**
-(`bin/surf-research-skill.mjs:697-740`). `keys list` roda sem chave, mas é
+(`bin/surf-research-skill.mjs:704-744`). `keys list` roda sem chave, mas é
 relatório: sai 0 sempre.
 
 ```
@@ -352,8 +352,9 @@ texto do provedor, que pode conter o próprio token de que reclama:
 }
 ```
 
-`verdict` sai de `GATE` (`src/lib/preflight.mjs:37-48`): `ready`, `missing`,
-`burned`, `cooling`, `unvalidated`, `invalid`, `unreachable`. `code` é
+`verdict` sai de `GATE` (`src/lib/preflight.mjs:37-55`): `ready`, `missing`,
+`burned`, `cooling`, `unvalidated`, `invalid`, `present_unproven`,
+`unreachable`. `code` é
 `BraveKeyReady` quando `ok`, e senão o `CODE_FOR[verdict]` da tabela abaixo.
 
 ## Toolbox manual — busca crua
@@ -407,15 +408,15 @@ mentir que é a lista inteira:
 
 | Var | Onde | Efeito |
 |---|---|---|
-| `SURF_NO_TIMEOUT=1` | `dispatch.mjs:36`, `:59` | Mesmo efeito de `--no-budget` |
-| `SURF_AGENT_BUDGET_MS` | `dispatch.mjs:37-38` | Orçamento por chamada de busca (`0` = sem limite) |
-| `SURF_TIMEOUT_MS` | `providers/brave.mjs:55` | Timeout HTTP por requisição Brave (45 s) |
-| `SURF_AI_TIMEOUT_MS` | `ai/openrouter.mjs:50` | Timeout por chamada de LLM (120 s) |
-| `SURF_AI_MAX_TOKENS` | `ai/orchestrator.mjs:520` | Teto de tokens da síntese (8000) |
-| `SURF_AI_COOLDOWN_MS` | `ai/openrouter.mjs:52` | Espera após 429 do OpenRouter (45 s) |
-| `OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` · `PI_BASH_DEFAULT_TIMEOUT_SECONDS` | `dispatch.mjs:50`, `:64-66` | Os outros dois harnesses cujo timeout o surf detecta |
+| `SURF_NO_TIMEOUT=1` | `dispatch.mjs:48`, `:71` | Mesmo efeito de `--no-budget` |
+| `SURF_AGENT_BUDGET_MS` | `dispatch.mjs:49-52` | Orçamento por chamada de busca (`0` = sem limite) |
+| `SURF_TIMEOUT_MS` | `providers/brave.mjs:59` | Timeout HTTP por requisição Brave (45 s) |
+| `SURF_AI_TIMEOUT_MS` | `ai/openrouter.mjs:51` | Timeout por chamada de LLM (120 s) |
+| `SURF_AI_MAX_TOKENS` | `ai/orchestrator.mjs:570` | Teto de tokens da síntese (8000) |
+| `SURF_AI_COOLDOWN_MS` | `ai/openrouter.mjs:53` | Espera após 429 do OpenRouter (45 s) |
+| `OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` · `PI_BASH_DEFAULT_TIMEOUT_SECONDS` | `dispatch.mjs:58`, `:62-64` | Os outros dois harnesses cujo timeout o surf detecta |
 | `SURF_BRAVE_API_BASE` · `SURF_OPENROUTER_BASE` · `SURF_DEV` · `SURF_PLAN_DIR` · `SURF_NO_RATE_LIMIT` · `SURF_ALLOW_EXPENSIVE` · `SURF_MAX_CONTENT_CHARS` · `SURF_BRAVE_VALIDATION_TTL_MS` · `SURF_BRAVE_MAX_WAIT_MS` · `SURF_BRAVE_QUOTA_BACKOFF_MS` · `SURF_BRAVE_LOCK_STALE_MS` | vários | Ajustes internos e de teste |
-| `TAVILY_CACHE_TTL` · `TAVILY_MAX_CONTENT_CHARS` | `cache.mjs:9` | Aliases legados da era Tavily; ainda lidos |
+| `TAVILY_CACHE_TTL` · `TAVILY_MAX_CONTENT_CHARS` | `cache.mjs:9` / `format.mjs:6` | Aliases legados da era Tavily; ainda lidos (`TAVILY_CACHE_TTL` no cache, `TAVILY_MAX_CONTENT_CHARS` no formatador) |
 
 Não existe `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` no surf — se o seu harness a
 tiver, é dele. O único teto de simultaneidade que o surf conhece é
@@ -439,12 +440,12 @@ O 78 é `EX_CONFIG` do sysexits(3), escolhido justamente para ser distinguível
 de 1 (a operação rodou e falhou) e de 2 (o comando foi digitado errado) sem
 precisar interpretar o texto da mensagem.
 
-### O 78 tem cinco sabores — a família `BraveKey*`
+### O 78 tem seis sabores — a família `BraveKey*`
 
 Todo 78 imprime `❌ Error [<code>]: …` no stderr, e o `<code>` diz **o que**
 está quebrado. A família inteira casa com `/^BraveKey/`, então um parser que
 só quer saber "é problema de chave?" pode testar isso e ignorar o resto
-(`src/lib/preflight.mjs:50-57`).
+(`src/lib/preflight.mjs:57-66`).
 
 | `code` | `verdict` | Significa | O sub-agente |
 |---|---|---|---|
@@ -452,13 +453,14 @@ só quer saber "é problema de chave?" pode testar isso e ignorar o resto
 | `BraveKeyBurned` | `burned` | Toda chave da máquina está queimada | PARA |
 | `BraveKeyCooling` | `cooling` | Toda chave está em cooldown de rate limit | PARA nesta rajada; a espera é do relógio, não do agente |
 | `BraveKeyInvalid` | `invalid` | O Brave **rejeitou** o token. É fato sobre a chave, e fica em cache | PARA. Trocar a chave é a única saída |
+| `BraveKeyUnproven` | `present_unproven` | A chave existe mas **nunca foi validada** (checagem offline, `allowLive:false`) | PARA esta chamada; rode o comando indicado para validá-la de graça — não é chave morta |
 | `BraveKeyUnverified` | `unreachable` | **A rede caiu e a chave nunca foi julgada.** Ninguém respondeu à sondagem | PARA esta chamada, mas **não** reporte a chave como morta, e **não** mande removê-la |
 
 `BraveKeyUnverified` existe justamente para não ser `BraveKeyInvalid`:
 "o Brave rejeitou seu token" e "não deu para perguntar ao Brave" levavam à
 mesma mensagem, e um blip de DNS fazia o agente aconselhar remover uma chave
 perfeitamente boa. Nada é gravado em cache nesse caminho — a próxima chamada
-testa de novo, de graça (`src/lib/preflight.mjs:44-47`, `:241-247`).
+testa de novo, de graça (`src/lib/preflight.mjs:22-27`, `:233-245`).
 
 ## Segurança
 

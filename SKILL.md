@@ -1,29 +1,20 @@
 ---
 name: surf-research-agent-skill
 description: >-
-  Multi-agent research orchestrator using bursts of doubt, on Brave Search
-  and nothing else. The main agent never searches: it raises every question it
-  has, fires a burst of parallel sub-agents with one closed question per doubt
-  (at most 10 at a time, tunable with sub-agents=N), then analyzes whether the
-  answers opened new questions. Stops immediately if no valid Brave key exists
-  — there is no fallback provider and no free tier underneath. Two modes — single-burst (one burst and
-  synthesize) and continuous-burst (new bursts until saturation, questioning
-  its own answers). In both modes, a context burst consults the calling
-  conversation and the repository before any web search. Each sub-agent uses
-  the surf-ai CLI and returns a structured handoff. Use it when answering
-  needs MORE THAN ONE independent question — when the sub-questions depend on
-  each other and each answer rewrites the next question. Triggers on: ache
-  tudo sobre, levantamento completo, pesquisa profunda, panorama de, todas as
-  opções de, compare X, Y e Z, não deixe nada em aberto, deep dive, find
-  everything about, exhaustive research, leave nothing open. DO NOT use for
-  ONE independent question with ONE verifiable answer — a version, a number, a
-  date, a price, "is this still true?", or comparing two options on a SINGLE
-  axis: that is surf-search-agent-skill, which answers in one cited call and
-  writes nothing, while this skill fires at least 6 sub-agents and leaves
-  three files plus a git commit behind. Not for local files, git, code
-  editing, or writing execution plans — for planning, use
-  surf-plan-agent-skill. Not for reading a specific URL either: Brave returns
-  ranked links and snippets, never page content.
+  Multi-agent research orchestrator on Brave Search and nothing else. The main
+  agent never searches: it raises every doubt, fires a burst of parallel
+  sub-agents (one closed question each, at most 10 at a time; sub-agents=N),
+  then checks whether the answers opened new questions — single-burst, or
+  continuous-burst until saturation. A context burst reads the conversation
+  and the repo before any web search; each sub-agent uses the surf-ai CLI and
+  returns a structured handoff. Stops at exit 78 (no valid Brave key): no
+  fallback, no free tier. Use when answering needs MORE THAN ONE dependent
+  question. Triggers: ache tudo sobre, levantamento completo, pesquisa
+  profunda, panorama de, compare X, Y e Z, deep dive, find everything about,
+  exhaustive research. NOT for ONE verifiable answer (version, number, date,
+  price, two options on one axis) — that is surf-search-agent-skill; not for
+  plans (surf-plan-agent-skill), local files, git, code, or reading a URL
+  (Brave returns links and snippets, never page content).
 license: MIT
 argument-hint: "question or topic — optionally single-burst | continuous-burst, and sub-agents=N (default 10)"
 allowed-tools: Agent, Task, Read, Write, Edit, Grep, Glob, Skill, Bash(git:*), Bash(mkdir:*), Bash(ls:*), Bash(wc:*), Bash(surf-research-skill gate:*), Bash(surf-research-skill keys:*)
@@ -353,7 +344,7 @@ metadata:
       <step>EXTRAIA `sub-agents=N` de $ARGUMENTS ANTES de qualquer outra coisa.
         Aceite `sub-agents=8`, `--sub-agents=8` e `--sub-agents 8`. Remova o
         token do texto restante — se não remover, ele vira parte da pergunta e
-        você pesquisa "sub-agents=8" no Google. Sem o token, N = 10. Fora de
+        você pesquisa "sub-agents=8" na Brave. Sem o token, N = 10. Fora de
         1..20, corrija para o limite mais próximo e declare a correção.
         N é o TETO DE SIMULTANEIDADE da rajada (ver `budgets`).</step>
       <step>PORTÃO DA CHAVE — antes de qualquer rajada, rode

@@ -17,6 +17,8 @@ Leia o caso quando o sintoma aparecer. O `SKILL.md` traz só o índice.
 | `web-contradiz-projeto` | O achado na web contradiz o contexto local |
 | `cascata-de-refutação` | O revisor adversarial refutou mais de 30% das afirmações |
 | `commit-bloqueado` | O commit final não pode ser feito |
+| `chave-brave-inválida` | Sub-agente (ou o portão) saiu **78** — `Error [BraveKey…]`: sem chave Brave utilizável |
+| `brave-sem-cota` | Buscas saem **exit 1** com `brave#N: 429` / `monthly quota exhausted`: a chave é válida, a cota acabou |
 
 ---
 
@@ -223,3 +225,27 @@ Em todos os casos: mantenha os artefatos em `research/{{SLUG}}` em disco, siga
 para o relatório final, e registre no T8 "Artefatos não commitados: {{MOTIVO}}".
 Resposta entregue com os arquivos em disco e o motivo declarado **não é**
 entregar metade.
+
+---
+
+## `chave-brave-inválida`
+
+**Sintoma.** A CLI saiu com **exit 78** e `❌ Error [BraveKeyMissing|BraveKeyBurned|BraveKeyCooling|BraveKeyInvalid|BraveKeyUnverified|BraveKeyUnproven]` no stderr — no portão (`surf-research-skill gate`) ou no meio de uma rajada.
+
+**O que NÃO fazer.** Re-disparar o sub-agente, trocar de ferramenta (WebSearch/WebFetch) ou "adivinhar" a resposta. 78 é `EX_CONFIG`: retentar não conserta, e não existe provedor de reserva.
+
+**O que fazer.**
+1. Pare a rajada atual. Devolva ao usuário a mensagem do portão **verbatim** — ela nomeia o código e o `Fix:` exato (`keys add`, `keys reset`, esperar o cooldown, checar a rede). Nunca resuma nem troque por um comando fixo.
+2. `BraveKeyCooling` limpa-se sozinho (~1 min depois de uma rajada de 429): rerode o portão antes de pedir qualquer coisa ao usuário. `BraveKeyUnverified` é REDE (o Brave não respondeu à sondagem): não mande remover a chave. `BraveKeyUnproven` (chave presente, nunca validada — checagem offline): rode o comando indicado para validá-la de graça.
+3. Retome do ponto em que parou depois que o usuário corrigir — o ledger guarda o que já foi respondido.
+
+## `brave-sem-cota`
+
+**Sintoma.** As buscas terminam com **exit 1** (0 fontes) e o stderr traz `brave#N: 429` (com `SUBSCRIPTION_QUOTA_EXCEEDED` / `RATE_LIMITED`), `monthly quota exhausted` ou `Error [AllKeysExhausted]`. O portão pode estar **verde**: a sondagem grátis não enxerga cota.
+
+**Como distinguir de "não achou".** Busca vazia é exit 1 **sem** essas assinaturas ("returned 0 results"). Cota/429/402 é falha de ambiente, não de pergunta — reformular não ajuda.
+
+**O que fazer.**
+1. Não re-dispare a rajada nem envolva a CLI em retry/backoff próprio (ela já ritma pelo plano Brave). Um burst de 429 põe a chave em cooldown de 60 s (o portão passa a 78 `BraveKeyCooling` nesse intervalo e volta sozinho).
+2. Cota **mensal** esgotada: pare e informe o usuário — só ele resolve (outra chave: `surf-research-skill keys add --provider brave <chave>`; ou o plano/cota no painel do Brave).
+3. Registre no ledger como BLOQUEADA (motivo: cota), nunca como respondida; o T8 declara "pesquisa impedida (cota)".

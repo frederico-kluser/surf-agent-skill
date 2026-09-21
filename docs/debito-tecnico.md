@@ -1,5 +1,9 @@
 # Débito técnico conhecido — surf-agent-skill
 
+> **RELATÓRIO HISTÓRICO** — auditoria de 2026-08-30, base `0f7126e` (v8.0.1). O que está abaixo
+> descreve aquela árvore, não o HEAD atual: vários itens já foram pagos (Ondas 7/8). O estado vivo
+> está no `CHANGELOG.md` e nas suítes de `npm test` — não trate a §1 como débito em aberto.
+
 - **Versão de referência**: `8.0.1` (`package.json`)
 - **Data**: 2026-08-30
 - **Base**: `0f7126e` (fim da auditoria adversarial de 2026-08-29/30, 5 ondas, 33 sub-tarefas)

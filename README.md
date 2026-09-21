@@ -88,7 +88,7 @@ plan / design ──▶ surf-plan-agent-skill ──▶ Normal (research-grounde
 
 | | |
 |---|---|
-| **Status** | v8.0.1 (npm) — **breaking**: Brave-only, see [the changelog](CHANGELOG.md) |
+| **Status** | v9.0.0 (npm) — **breaking**: the gate is a verb (`surf-research-skill gate`), every `--json` masks keys, the 78 gate guards the library path too. See [the changelog](CHANGELOG.md) |
 | **Install** | `npm i -g surf-agent-skill` (Linux · macOS · Windows) |
 | **Search backend** | **Brave Search only.** No fallback provider, no keyless tier. A missing or invalid key is exit 78. |
 | **Skills shipped** | `surf-research-agent-skill` (surf-ai) · `surf-plan-agent-skill` · `surf-search-agent-skill` |
@@ -851,7 +851,9 @@ surf-research-skill keys list
 # ## openrouter (1 key)
 # - [0] sk-or…9f2c  *(current)*
 
-surf doctor
+surf doctor                    # excerpt — the real output has five sections: ## Skills, ## Keys, ## Brave key gate, ## surf-ai, ## Plans
+# ## Brave key gate
+#   ✓ READY — key #0 validated (cached)
 # ## surf-ai
 #   ✓ ready — 1 stored key(s) + 1 from OPENROUTER_API_KEY(S)
 #     default model: deepseek/deepseek-v4-pro
@@ -880,10 +882,10 @@ the harness killed the calls (raise the timeout, see above) or the key ran out
 of monthly quota. Note this is *not* the missing-key case: that exits **78**
 before any search runs.
 
-**`❌ Error [BraveKeyMissing|BraveKeyBurned|BraveKeyCooling|BraveKeyInvalid|BraveKeyUnverified]`** (exit **78**)
+**`❌ Error [BraveKeyMissing|BraveKeyBurned|BraveKeyCooling|BraveKeyInvalid|BraveKeyUnverified|BraveKeyUnproven]`** (exit **78**)
 → The gate. There is no usable Brave key, so nothing ran. The message names the
 exact fix. 78 is `EX_CONFIG` — distinct from 1 and 2 precisely so an
-orchestrating agent knows that retrying is pointless. All five codes start with
+orchestrating agent knows that retrying is pointless. All six codes start with
 `BraveKey`, so `/^BraveKey/` still matches the whole family.
 - `BraveKeyMissing` → `surf-research-skill keys add --provider brave <key>`
 - `BraveKeyBurned` → `surf-research-skill keys reset --provider brave`
@@ -969,11 +971,11 @@ export `SURF_ALLOW_EXPENSIVE=1` for the session.
 
 ---
 
-## Repository layout (v8.0.1)
+## Repository layout (v9.0.0)
 
 ```text
 .
-├── package.json                       ← name: surf-agent-skill (npm), version 8.0.1, 5 bins
+├── package.json                       ← name: surf-agent-skill (npm), version 9.0.0, 5 bins
 ├── README.md           ← you're here
 ├── CHANGELOG.md
 ├── LICENSE
@@ -988,7 +990,7 @@ export `SURF_ALLOW_EXPENSIVE=1` for the session.
 ├── references/                        ← read on demand by the research orchestrator
 │   ├── burst-templates.md             ← the 8 sub-agent prompt templates (T1–T8)
 │   ├── surf-ai-cli.md                 ← CLI reference for writing delegation prompts
-│   ├── failure-modes.md               ← the 10 degradation cases
+│   ├── failure-modes.md               ← the 13 degradation cases (11 detailed here + the two key/quota cases)
 │   ├── COSTS.md                       ← what a search costs, and the rate limit that really binds
 │   ├── brave-api.md                   ← what Brave returns, what it doesn't, and every gotcha
 │   └── plan-workflow.md               ← deeper docs on the planning workflow (Normal + Deep ambiguity-sweep mode)
@@ -1001,10 +1003,12 @@ export `SURF_ALLOW_EXPENSIVE=1` for the session.
 │   ├── brave.mjs                      ← adapter, flags, frontier, key gate — regression tests for every v7 defect
 │   └── adversarial/                   ← the release gate (`npm run test:adversarial`)
 │       ├── brave-limits.mjs           ← Brave's caps: count 1-20, offset 0-9, 422 vs 400
+│       ├── env-keys.mjs               ← BRAVE_API_KEY(S) in memory only: never persisted, burn/cooldown stay off disk
 │       ├── flags-cli.mjs              ← flag parsing: the question must survive every typo
 │       ├── gate-state.mjs             ← keys.json + the gate: what may and may not be cached
 │       ├── lib-install.mjs            ← library entry points and the cross-OS symlink install
-│       └── loop-frontier.mjs          ← the deepening tree: priority, depth, branch closure
+│       ├── loop-frontier.mjs          ← the deepening tree: priority, depth, branch closure
+│       └── onda7-regressao-{busca,nucleo,superficie}.mjs ← regression of the wave-7 debt: search, core, surface
 ├── src/
 │   ├── index.mjs                      ← library entry (search / searchParallel)
 │   ├── env.mjs                        ← key discovery (opts > env > .env > config)

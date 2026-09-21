@@ -1,27 +1,20 @@
 ---
 name: surf-search-agent-skill
 description: >-
-  Web search for ONE question, answered and cited, with no orchestration. One
-  surf-search-normal call (Brave Search, and nothing else) returns the answer
-  with [n] citations and the source table. No sub-agents, no doubt ledger, no
-  files on disk, no commit. Use when the question is ONE independent question
-  with ONE verifiable answer: a number, a version, a date, a limit, a price, an
-  error message, "is this still true?", "how do I do X", or comparing two
-  options on a SINGLE axis. Also for a plain list of links. Triggers on:
-  pesquise, procura na web, me acha, qual a versao de, ainda existe, isso
-  mudou, quanto custa, o que e, como faco, search the web, look this up, what
-  is, how do I, is X still, does X support. Brave only - without a VALID Brave
-  key every command exits 78 and this skill STOPS; there is no fallback
-  provider and no WebSearch reserve. DO NOT use when the answer needs MORE THAN
-  ONE independent question - when sub-questions depend on each other and each
-  answer rewrites the next question - nor when the user asks for a
-  levantamento, panorama, "tudo sobre", "deep dive", a comparison of 3+ options
-  or of 2 options across several axes, nor when the user wants a written trail
-  of what was asked and what stayed open: all of those are
-  surf-research-agent-skill. DO NOT use to write an execution plan - that is
-  surf-plan-agent-skill. Not for local files, git or code editing. Not for
-  reading a specific URL either: Brave returns ranked links and snippets,
-  never page content.
+  Web search for ONE question, answered and cited, with no orchestration: one
+  surf-search-normal call (Brave Search, nothing else) returns the answer with
+  [n] citations and a source table — no sub-agents, no doubt ledger, no files,
+  no commit. Use for ONE independent question with ONE verifiable answer: a
+  number, version, date, limit, price, error message, "is this still true?",
+  "how do I do X", two options on a SINGLE axis, or a plain list of links.
+  Triggers: pesquise, procura na web, me acha, qual a versao de, ainda existe,
+  quanto custa, o que e, como faco, search the web, look this up, what is, how
+  do I, does X support. Brave only: without a VALID key every command exits 78
+  and this skill STOPS — no fallback, no WebSearch reserve. NOT for MORE THAN
+  ONE dependent question, a levantamento/panorama/deep dive, 3+ options or
+  several axes — that is surf-research-agent-skill. NOT for plans
+  (surf-plan-agent-skill), local files, git, code, or reading a URL (Brave
+  returns links and snippets, never page content).
 license: MIT
 argument-hint: "the question - optionally links-only"
 allowed-tools: Bash(surf-search-normal:*), Bash(surf-research-skill search:*), Bash(surf-research-skill search-parallel:*), Read
@@ -72,7 +65,7 @@ questions — stop. That is step 5c: say it out loud and escalate.
 
 Do **not** run `surf-research-skill keys list` first — it validates nothing and
 always exits 0, so it cannot tell you whether the key works. The real gate is
-`preflightOrExit()` inside the binary itself (`bin/surf-search-normal.mjs:111`),
+`preflightOrExit()` inside the binary itself (`bin/surf-search-normal.mjs:124`),
 which runs before the LLM plans anything.
 
 ```bash
@@ -100,18 +93,18 @@ These are the real field names in the `--json` payload (`renderJson`,
 `src/lib/ai/render.mjs:186-203`). Read them in this order:
 
 1. **`ledger.stats.failed`** — how many searches failed, out of
-   `ledger.stats.queries` (`src/lib/ai/ledger.mjs:153-162`). Greater than zero
+   `ledger.stats.queries` (`src/lib/ai/ledger.mjs:213-222`). Greater than zero
    means coverage is thinner than it looks; lower the confidence you declare in
    step 4.
 2. **`synthesized`** — a top-level boolean, true **only** when the LLM
-   synthesis actually produced the answer (`src/lib/ai/orchestrator.mjs:499`,
-   `:523`). **`false` means what you are holding is evidence, not a synthesis.**
+   synthesis actually produced the answer (`src/lib/ai/orchestrator.mjs:549`,
+   `:573`). **`false` means what you are holding is evidence, not a synthesis.**
 3. **`diagnostics.degraded`** — an array of `{stage, reason}`
-   (`src/lib/ai/orchestrator.mjs:204`). In rendered (non-JSON) output the same
+   (`src/lib/ai/orchestrator.mjs:228`). In rendered (non-JSON) output the same
    thing shows as `> ⚠ Degraded stage(s): **<stage>** (<reason>)`
    (`src/lib/ai/render.mjs:176`), or, when the LLM was unreachable for the whole
    run, as the header `> ⚠ **Degraded mode — no LLM synthesis.**`
-   (`src/lib/ai/heuristics.mjs:127`).
+   (`src/lib/ai/heuristics.mjs:154`).
 4. **`stop_reason`** — resolved, or out of budget.
 
 > **Do not look for `diagnostics.queriesFailed`.** No code anywhere writes it —

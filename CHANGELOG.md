@@ -2,7 +2,48 @@
 
 > **Historical entries (v1.0.0 – v4.1.0)** have been archived to [CHANGELOG-archive.md](CHANGELOG-archive.md).
 
-## Unreleased
+## 9.0.0 — o portao vira verbo, a chave para de sumir, e as tres skills cabem no catalogo
+
+### Added
+
+- **`surf-research-skill gate` (and `gate --json`).** The preflight gate as a
+  first-class verb: exit 0 when a Brave key is ready, exit 78 with
+  `❌ Error [BraveKey…]` otherwise, never a raw key. `gate --json` reports
+  `verdict`, `code`, masked `keys`, `key_count`, `key_source` and
+  `env_key_count`. `surf doctor` consumes it instead of re-deriving the
+  verdict. Orchestrators (deep-orchestrator-agent-skill ≥ 4.1.0) depend on it.
+- **`surf-search-agent-skill`** — the shallow half of the research pair: ONE
+  question, one `surf-search-normal` call, no sub-agents, no ledger, no files.
+  Installed alongside the research and plan skills; the three descriptions now
+  fit the 1024-character catalogue limit, so the routing boundary between the
+  sisters survives the listing.
+- **Two new gate verdicts.** `BraveKeyUnverified` (the probe never got an
+  answer — network, not the key; nothing is cached) and `BraveKeyUnproven`
+  (a key is present but has never been validated — offline check). All six
+  codes still match `/^BraveKey/`.
+- `~/.dsh/skills` (DeepSeek Harness) joins the harness directories the
+  installer links the skills into.
+
+### Changed (breaking)
+
+- **Every `--json` output masks keys**, `exit 2` on usage errors comes without
+  a stack trace, and the gate is now a verb (`3f38622`). A consumer that
+  parsed raw keys out of `keys add --json` / `keys list --json` breaks.
+- **The 78 gate also guards the library path** (`8271b3f`): `search()` /
+  `searchParallel()` throw `GateError` (exit 78 semantics) instead of
+  `NoProviderAvailable` when no usable key exists.
+- **A 429 for quota no longer burns the key** (`6b340a4`): quota / rate-limit
+  429s skip the key for the wave (60 s cooldown) and leave burning to real
+  auth failures; `site:` is no longer amputated by query truncation.
+- **A network blip no longer poisons the validation cache for 7 days**
+  (`3ae35a3`): only a real verdict is cached, and a negative one is never
+  written from a probe that got no answer.
+- **`cleanupLegacy` stops deleting a third party's skill** that happens to use
+  one of our legacy names (`9ee6d64`): a name alone is never proof of
+  ownership.
+- Semantics of `--search-mode normal` under surf-ai: it now goes on the wire
+  exactly like omitting the flag (the tier's `max`), instead of falling
+  through to the adapter's 10 results and silently costing twice the quota.
 
 ### Fixed
 
@@ -36,6 +77,63 @@
   throwaway `HOME` like the other suites. Every suite also strips
   `BRAVE_API_KEY(S)` / `OPENROUTER_API_KEY(S)` from its child's environment,
   so a key exported on the developer's machine cannot change what a test sees.
+- **Cold start could lose keys.** The first `keys.json` was written blind (no
+  snapshot, no merge), so two processes starting on an empty config dir — two
+  `keys add` at once, or an orchestrator fanning out while a key was being
+  added — each reported "✓ added" while the second creation erased the first
+  key. `loadState()` no longer writes the blank file; the first real save
+  merges whatever appeared on disk since load.
+- **`surf remove <provider> <i>` corrupted per-key bookkeeping.** It remapped
+  only `burned`, leaving `validated` and `cooldowns` on their old indexes and
+  resetting `current` to 0 — the removed key's verdict was attributed to its
+  neighbour, so the gate trusted a key Brave had rejected or refused a good
+  one. `surf remove` and `keys remove` now share one `removeKeyAt()`.
+- **`surf validate <provider>` persists the verdict it just proved.** A stale
+  cached `ok:false` made the gate answer 78 `BraveKeyInvalid` even after
+  "✓ valid"; only `keys reset` cleared it.
+- **Timeouts were reported as `Brave network error: undefined`.** The abort
+  reason was a bare string, so the "request exceeded N ms" branch never ran.
+- **`BraveKeyCooling` says it clears itself** (about a minute after a burst
+  of 429s) — it is not a configuration problem.
+- surf-ai saves no longer wipe the cached OpenRouter validation verdicts.
+- The installer resolves the home from `$HOME`/`USERPROFILE` and refuses to
+  guess from `/etc/passwd` when neither is set — a sandboxed run with a
+  scrubbed environment can no longer install into, or uninstall from, the
+  real home.
+- Frontier: no more key collisions or permanent rejections; closing a branch
+  that never existed no longer bars its queries forever; rejected queries kept
+  in a bounded FIFO (`97d7d96`, `679b0f8`, `e8b3705`).
+- Rate limit / cache: honest counters, min-wins policies, real pacing, a clock
+  in the future no longer disables pacing, a monthly quota is no longer erased
+  by a 200, `cacheClear` keeps the ledger (`7e25a1a`, `9f90715`, `c9a7713`).
+- CLI hygiene: exit 2 on bad input, help without a key, validated numerics,
+  an unknown flag no longer swallows the next positional, a single key mask
+  in `keys add` (`d375a70`, `68badfb`).
+- Install/uninstall: dangling and relative symlinks repaired, `unlinkIfOurs`
+  never removes the user's own symlink, `npm rm -g` no longer leaves the v7
+  keyless skill behind, doctor unified (`01cb491`, `38b46e2`, `f82ab02`,
+  `aeea297`, `8727faf`).
+- Ledger/HTML: `canonicalUrl` idempotent, URLs without host refused, digest
+  hardened against injection; lone surrogates, CR, U+00AD, RLO/C0/C1 controls
+  and ASCII smuggling can no longer forge cited evidence (`d25d27d`,
+  `6d1008d`, `3547caa`, `421294b`, `3f718f6`).
+- surf-ai: all seven search flags reach Brave, `--max-depth` really limits,
+  `stop_reason` is truthful, OpenRouter backoff fits the harness budget
+  (84 s → 24 s), credentials never enter a prompt (`1d902d6`, `c113e76`,
+  `b9681f1`, `9f011db`).
+- `searchParallel` rejects without a key (the 78 invariant in the fan-out),
+  deduplicates traffic, unique ids (`88799f0`); `keys add` no longer refuses a
+  good key when the network is down (`8a2a275`); `.env` parsing survives
+  `export`, single quotes and `#` inside the value (`ba99c27`); a duplicated
+  key keeps its burn and a `.env` cache expires (`47df1e6`); the plan binary's
+  gate message names the real verdict (`2fd386a`).
+- `package.json` is the single source of the version (`0f7126e`).
+
+### Tests
+
+- Nine adversarial suites are the release gate (`npm test`): `env-keys` and
+  the three `onda7-regressao-*` suites joined `brave-limits`, `flags-cli`,
+  `gate-state`, `lib-install` and `loop-frontier`.
 
 ## 8.0.1 — `keys list --json` no longer prints raw API keys
 
