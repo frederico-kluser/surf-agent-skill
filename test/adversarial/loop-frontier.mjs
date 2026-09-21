@@ -15,8 +15,12 @@
 //   bug()     — DEFECT. The assertion is written so that TRUE means "the bug
 //               is still there". A confirmed bug is reported loudly but does
 //               NOT fail the suite: this wave proves defects, it does not fix
-//               them. If a bug stops reproducing the line says so, which is
-//               the signal that a fix landed and the assertion should flip.
+//               them. When a fix lands the row flips to the FIXED ledger
+//               (fixed(), or the same flip inside bug()) and now guards the
+//               fix: a regression re-raises it as ☢.
+//   fixed()   — FIXED. The condition reads "the fix holds". It enters the
+//               same FIXED ledger as a bug() row that stopped reproducing,
+//               and never fails the run on its own.
 //
 // Every orchestrator run is wrapped in a timeout. A test that hangs is worse
 // than the bug it was hunting.
@@ -91,8 +95,25 @@ function bug(id, name, stillBroken, evidence) {
     bugs.push({ id, name, evidence });
     process.stdout.write(`  ☢ BUG ${id} — ${name}${evidence ? `\n      evidence: ${evidence}` : ''}\n`);
   } else {
+    // The FIXED state of this ledger: the assertion stays, now guarding the
+    // landed fix. A regression flips the row back to ☢.
     stale.push(`${id} ${name}`);
-    process.stdout.write(`  ○ ${id} NOT REPRODUCED (fixed?) — ${name}\n`);
+    process.stdout.write(`  ✓ FIXED ${id} — ${name}\n`);
+  }
+}
+/**
+ * A defect whose fix is asserted POSITIVELY — the condition reads "the fix
+ * holds", not "the bug still reproduces". Landed fixes enter here instead of
+ * waiting in the bug() ledger; fixHolds false = the bug is back, reported as
+ * ☢ again. It never fails the run on its own: the contract rows carry the gate.
+ */
+function fixed(id, name, fixHolds, evidence) {
+  if (fixHolds) {
+    stale.push(`${id} ${name}`);
+    process.stdout.write(`  ✓ FIXED ${id} — ${name}\n`);
+  } else {
+    bugs.push({ id, name, evidence });
+    process.stdout.write(`  ☢ BUG ${id} REGRESSED — ${name}${evidence ? `\n      evidence: ${evidence}` : ''}\n`);
   }
 }
 function section(t) { process.stdout.write(`\n${t}\n`); }
@@ -742,9 +763,13 @@ section('orchestrator: --search-mode really reaches the Brave adapter');
 {
   reset([orChat(PLAN_1Q), orChat('# A\nx [1].')]);
   await run({ question: 'sm normal' }, { mode: 'normal', searchMode: 'normal', flags: NOCACHE }, 'search-mode normal');
-  bug('BUG-25', 'passing --search-mode normal changes the request vs omitting it',
-    braveCalls[0].count === '10',
-    `orchestrator.mjs:519 — omitting --search-mode sends max=${5} (the run-tier default), while the nominally identical --search-mode normal sends no max and Brave defaults to count=${braveCalls[0].count}`);
+  // Flipped to a positive assertion when the fix landed: `normal` is the
+  // tier's own name, so it means "the default" and must reach the wire
+  // exactly like omitting the flag — the tier's perSearchMax, not the
+  // adapter's normal (10), which silently cost twice the quota.
+  fixed('BUG-25', 'passing --search-mode normal sends the SAME count as omitting it (the tier default)',
+    braveCalls[0].count === '5',
+    `orchestrator.mjs runOneSearch — omitting --search-mode sends max=5 (the run-tier default), and the nominally identical --search-mode normal now sends max=${braveCalls[0].count} on the wire instead of no max (Brave default count=10)`);
 }
 
 section('orchestrator: the frontier can be left holding queries nobody mentions (Q5)');
@@ -1038,8 +1063,8 @@ if (failures.length) for (const f of failures) process.stdout.write(`  ✗ ${f}\
 process.stdout.write(`\n${bugs.length} DEFECT(S) CONFIRMED:\n`);
 for (const b of bugs) process.stdout.write(`  ☢ ${b.id} — ${b.name}\n`);
 if (stale.length) {
-  process.stdout.write(`\n${stale.length} defect assertion(s) no longer reproduce (a fix probably landed — flip them):\n`);
-  for (const s of stale) process.stdout.write(`  ○ ${s}\n`);
+  process.stdout.write(`\n${stale.length} defect assertion(s) FIXED (assertion kept; a regression re-raises it):\n`);
+  for (const s of stale) process.stdout.write(`  ✓ ${s}\n`);
 }
 
 // Confirmed defects are the POINT of this suite; they never fail the run.

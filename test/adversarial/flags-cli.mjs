@@ -512,10 +512,16 @@ section('--mode aliasing: BUGS ENCONTRADOS');
     !!viaBin && viaBin.code === 'FLAG_USAGE' && !!viaSub && viaSub.code === 'AI_CLI_USAGE');
 }
 {
-  const r = attempt(() => parseFlags(['--budget-ms', 'abc', 'q']));
-  bug(18, 'MEDIUM', 'src/lib/ai/cli.mjs:122 → src/lib/ai/orchestrator.mjs:90',
-    '--budget-ms is the only numeric flag never passed through numericFlag: it goes raw into Number(), so `--budget-ms abc` becomes NaN and is silently discarded instead of being a usage error',
-    r.ok && Number(r.value.flags['budget-ms']).toString() === 'NaN');
+  // Flipped (the ledger audit): the parser keeping `--budget-ms` raw is the
+  // documented parse-raw/validate-late convention — the CONSUMER is the gate,
+  // and it validates: budgetMs = numericFlag(flags['budget-ms'], …) throws
+  // FlagError/FLAG_USAGE, so the e2e contract is "usage error, no silent NaN".
+  // The defect is only live if the value still reaches the orchestrator raw.
+  const e = await caught(() => runAiCommand({ pos: ['q'], flags: { 'budget-ms': 'abc' }, mode: 'normal' }));
+  bug(18, 'MEDIUM', 'src/lib/ai/cli.mjs:144',
+    '--budget-ms abc is silently discarded instead of being a usage error — the only numeric flag never passed through numericFlag',
+    !e || e.code !== 'FLAG_USAGE',
+    `the consumer rejects it before any search runs: ${e ? `${e.name} ${e.code} — ${String(e.message).slice(0, 80)}` : 'accepted'}`);
 }
 {
   const unlimitHelp = readFileSync(BIN('surf-search-unlimit.mjs'), 'utf8');

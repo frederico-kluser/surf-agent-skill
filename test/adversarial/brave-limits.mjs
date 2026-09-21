@@ -11,9 +11,10 @@
 //                real failure and the process exits 1.
 //   bug()      — a DEFECT this suite reproduces on purpose. Bugs are counted
 //                separately and NEVER change the exit code, so wave 1 can prove
-//                them without breaking the build. When a fix lands, bug() flips
-//                to "no longer reproduces" instead of failing — which makes this
-//                file the acceptance test for the fixing wave.
+//                them without breaking the build. When a fix lands, the row
+//                flips to the FIXED ledger (✓ FIXED <id>) instead of failing —
+//                which makes this file the acceptance test for the fixing wave.
+//                A regression flips the row back into the reproduced list.
 //
 // QUOTA: zero network. globalThis.fetch is stubbed before anything is imported
 // that could use it, SURF_BRAVE_API_BASE points at an unroutable host, and HOME
@@ -174,7 +175,9 @@ function eq(name, actual, expected) {
 }
 /**
  * Record a reproduced defect. `broken` is TRUE while the bug is present.
- * Never touches the exit code — see the header.
+ * Never touches the exit code — see the header. `broken` false is the FIXED
+ * ledger: the assertion stays, now guarding the landed fix; a regression
+ * flips the row back into the reproduced list.
  */
 function bug(id, sev, where, title, broken, evidence) {
   if (broken) {
@@ -182,7 +185,7 @@ function bug(id, sev, where, title, broken, evidence) {
     out(`  ! ${id} [${sev}] ${title}\n      ${where}\n      observed: ${evidence}\n`);
   } else {
     fixed.push(id);
-    out(`  ✓ ${id} no longer reproduces — ${title}\n`);
+    out(`  ✓ FIXED ${id} — ${title}\n`);
   }
 }
 function section(t) { out(`\n${t}\n`); }
@@ -839,7 +842,7 @@ section('dispatch: the cache is consulted before the gate and before the flags')
 section('summary');
 out(`\n${passed} passed, ${failures.length} failed\n`);
 for (const f of failures) out(`  x ${f}\n`);
-out(`${bugs.length} defect(s) reproduced${fixed.length ? `, ${fixed.length} no longer reproduce (${fixed.join(', ')})` : ''}\n`);
+out(`${bugs.length} defect(s) reproduced${fixed.length ? `, ${fixed.length} FIXED (${fixed.join(', ')})` : ''}\n`);
 const bySev = {};
 for (const b of bugs) bySev[b.sev] = (bySev[b.sev] || 0) + 1;
 for (const sev of ['CRITICAL', 'HIGH', 'MED', 'LOW', 'INFO']) {

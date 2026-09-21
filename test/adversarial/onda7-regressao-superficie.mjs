@@ -479,7 +479,7 @@ const hi = await import('../../src/lib/harness-install.mjs');
   // trick: ESM bindings are immutable whether declared const or let, so a
   // TypeError-on-assignment pin survives const→let mutation by construction.
   ok('HARNESS_DIRS is exported as an array (the boot snapshot exists)', Array.isArray(hi.HARNESS_DIRS));
-  eq('four harness dirs are targeted', hi.HARNESS_DIRS.length, 4);
+  eq('five harness dirs are targeted (.agents, .claude, .codex, .pi/agent, .dsh)', hi.HARNESS_DIRS.length, 5);
   for (const d of hi.HARNESS_DIRS) {
     ok(`${d.replace(HOME, '$HOME')} is under the sandbox home`, d.startsWith(HOME));
   }
@@ -626,7 +626,7 @@ section('F2 harness-install: uninstallSkill sweeps LEGACY_NAMES');
   ok('the removal is reported', un.some(r => r.skill === 'surf-free-agent-skill' && r.removed === true));
   ok('the user\'s legacy-named link survives the sweep',
     !!lstatOrNull(path.join(dir, 'surf-plan')) && !un.some(r => r.dir === path.join(dir, 'surf-plan') && r.removed));
-  eq('all 12 own skill links are gone', un.filter(r => r.removed && !String(r.skill).startsWith('surf-free')).length, 12);
+  eq('all 15 own skill links are gone', un.filter(r => r.removed && !String(r.skill).startsWith('surf-free')).length, 15);
   for (const dd of hi.HARNESS_DIRS) rmSync(dd, { recursive: true, force: true });
 }
 

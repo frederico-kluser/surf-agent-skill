@@ -458,9 +458,15 @@ const { discoverKeys, buildInMemoryState } = lib;
   ok('keys.json is NOT merged once an earlier level answered', !got.brave.includes('from-keysjson'));
   eq('...but a provider with no earlier answer still falls back to keys.json',
     got.openrouter.join(','), 'orr-from-keysjson');
+  // Flipped (the ledger audit): the behaviour was never wrong — the HEADER
+  // was. It promised "each level can contribute; results merged + deduped"
+  // while level 4 is consulted only when levels 1-3 answered nothing. The
+  // header now scopes the merge promise to levels 1-3 and documents level 4
+  // as FALLBACK ONLY; the defect is live again only if that scoping is lost.
+  const envHeader = readFileSync(path.join(ROOT, 'src', 'env.mjs'), 'utf8').slice(0, 1_200);
   bug('D1', 'the header comment in env.mjs:2 promises "each level can contribute; results merged + deduped", which is false for level 4',
-    !got.brave.includes('from-keysjson'),
-    'env.mjs:95-105 consults keys.json only when levels 1-3 produced nothing for that provider');
+    !/FALLBACK ONLY/.test(envHeader) || !/levels 1-3 each contribute/.test(envHeader),
+    'the header now says: "Level 4 — ~/.config/surf/keys.json … is a FALLBACK ONLY: it is consulted per provider just when levels 1-3 produced nothing for that provider"');
 
   const deduped = await discoverKeys({ braveKeys: ['from-env', 'from-env', 'x'], cwd: d });
   eq('duplicates across and within sources collapse', deduped.brave.join(','), 'from-env,x,from-dotenv');
@@ -492,7 +498,6 @@ section('env.mjs: the .env parser');
     ['P2', "BRAVE_API_KEY='single'", 'single quotes are NOT stripped — the quotes become part of the key', ["'single'"]],
     ['P3', 'BRAVE_API_KEY=abc#def', 'a `#` inside the value truncates the key instead of being taken literally', ['abc']],
     ['P4', 'BRAVE_API_KEY=has"quote', 'a `"` anywhere in the value drops the whole line', []],
-    ['P5', 'brave_api_key=lowercase', 'a lowercase variable name is ignored', []],
   ];
   for (const [id, body, why, expected] of bad) {
     const d = box('dotenv-bad');
@@ -505,6 +510,28 @@ section('env.mjs: the .env parser');
   mkdirSync(path.join(d1, '.env'));
   const r1 = await rejects(() => discoverKeys({ cwd: d1, skipConfigFile: true }));
   ok('a directory named .env does not crash discovery', !r1.threw, r1.message);
+  // Flipped (the ledger audit, commit 47df1e6): discovery STAYS case-sensitive
+  // (shell semantics — brave_api_key is a different variable than the one
+  // discovery reads), but the "my key is right there" case is diagnosed now:
+  // a lower- or mixed-case spelling of a watched name emits a warning naming
+  // the canonical variable. The defect is only live if the line is ignored
+  // WITHOUT that diagnosis.
+  {
+    const { progress } = await import('../../src/lib/progress.mjs');
+    const warns = [];
+    const prevWarn = progress.warn;
+    progress.warn = (m) => warns.push(String(m));
+    try {
+      const dP5 = box('dotenv-case-warn');
+      writeFileSync(path.join(dP5, '.env'), 'brave_api_key=lowercase\n');
+      const gotP5 = await discoverKeys({ cwd: dP5, skipConfigFile: true });
+      bug('P5', 'a lowercase variable name is ignored — silently',
+        gotP5.brave.length === 0 && warns.length === 0,
+        `discovery still ignores the line (case-sensitive), but it now diagnoses it: "${String(warns[0] || '(no warning)').slice(0, 140)}"`);
+    } finally {
+      progress.warn = prevWarn;
+    }
+  }
   const d2 = box('dotenv-none');
   const r2 = await rejects(() => discoverKeys({ cwd: d2, skipConfigFile: true }));
   ok('an absent .env does not crash discovery', !r2.threw, r2.message);
@@ -604,7 +631,7 @@ const hi = await import('../../src/lib/harness-install.mjs');
 for (const d of hi.HARNESS_DIRS) {
   ok(`${d.replace(HOME, '$HOME')} is under the sandbox home`, d.startsWith(HOME));
 }
-eq('four harness dirs are targeted', hi.HARNESS_DIRS.length, 4);
+eq('five harness dirs are targeted (.agents, .claude, .codex, .pi/agent, .dsh)', hi.HARNESS_DIRS.length, 5);
 
 section('harness-install: symlinkOrCopy against every kind of squatter');
 {
@@ -666,7 +693,7 @@ section('harness-install: install / uninstall round trip');
   const d = box('roundtrip');
   const pkg = fakePkg(d);
   const res = await hi.installSkill(pkg);
-  eq('three skills into four harness dirs', res.filter(r => r.action === 'symlinked').length, 12);
+  eq('three skills into five harness dirs', res.filter(r => r.action === 'symlinked').length, 15);
   for (const dir of hi.HARNESS_DIRS) {
     ok(`${path.basename(path.dirname(dir))}: root skill linked`,
       readlinkSync(path.join(dir, 'surf-research-agent-skill')) === pkg);
@@ -681,7 +708,7 @@ section('harness-install: install / uninstall round trip');
   const squat = path.join(hi.HARNESS_DIRS[1], 'surf-research-agent-skill');
   rmSync(squat); writeFileSync(squat, 'USER COPY');
   const un = await hi.uninstallSkill(pkg);
-  eq('eleven of our twelve links are removed', un.filter(r => r.removed).length, 11);
+  eq('fourteen of our fifteen links are removed', un.filter(r => r.removed).length, 14);
   eq('the user copy is left alone', readFileSync(squat, 'utf8'), 'USER COPY');
   rmSync(squat);
   for (const dir of hi.HARNESS_DIRS) rmSync(dir, { recursive: true, force: true });
@@ -720,8 +747,8 @@ section('harness-install: install / uninstall round trip');
     const res = await hi.installSkill(pkg);
     const bad = res.filter(x => x.action === 'error');
     eq('an unwritable harness dir is reported as one error', bad.length, 1);
-    ok('...and the other three dirs still receive all three skills',
-      res.filter(x => x.action === 'symlinked').length === 9);
+    ok('...and the other four dirs still receive all three skills',
+      res.filter(x => x.action === 'symlinked').length === 12);
     chmodSync(dir, 0o755);
     for (const dd of hi.HARNESS_DIRS) rmSync(dd, { recursive: true, force: true });
   }
@@ -1006,19 +1033,39 @@ function runScript(script, extraEnv = {}, homeDir = null) {
   }
 }
 {
-  // The installer resolves the home with os.homedir(); the plan doctor reads
-  // $HOME. They disagree whenever the two differ.
-  const probe = spawnSync(process.execPath, ['-e',
-    'process.stdout.write(JSON.stringify({homedir:require("os").homedir(),env:process.env.HOME||null}))'],
+  // Flipped (BASE-03): the installer's WRITE home no longer comes from
+  // os.homedir(). resolveHome() reads $HOME/USERPROFILE and REFUSES to guess,
+  // so a sandboxed run with a scrubbed environment fails loud instead of
+  // installing into — and uninstalling from — the passwd home. The boot-time
+  // HARNESS_DIRS constant keeps the passwd fallback only so that importing the
+  // module never throws; nothing writes through it.
+  const probe = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    const m = await import(${JSON.stringify(new URL('../../src/lib/harness-install.mjs', import.meta.url).href)});
+    const res = { imported: true, bootDirs: m.HARNESS_DIRS.length };
+    try { m.harnessDirs(); res.threw = false; } catch (e) { res.threw = true; res.msg = String(e.message); }
+    process.stdout.write(JSON.stringify(res));
+  `],
     { encoding: 'utf8', env: { PATH: process.env.PATH } });
-  const v = JSON.parse(probe.stdout);
+  let v = null;
+  try { v = JSON.parse(String(probe.stdout).trim()); } catch { v = null; }
   bug('H10', 'os.homedir() ignores an unset/empty HOME and falls back to /etc/passwd, so the installer can write to the REAL home of a sandboxed run',
-    v.env === null && !!v.homedir,
-    `HOME unset -> os.homedir()=${v.homedir}; harness-install.mjs:15 resolves HARNESS_DIRS at import time`);
+    !(v && v.imported && v.threw && /HOME/.test(String(v.msg || ''))),
+    `HOME unset -> harnessDirs() now refuses: ${v ? String(v.msg) : String(probe.stderr).slice(0, 120)}`);
+  // The doctor side of the disagreement: surf-plan-skill.mjs reads $HOME. With
+  // resolveHome() the installer resolves writes from the SAME source, so the
+  // two agree whenever HOME is set — the defect is live only if the installer
+  // still resolves writes somewhere the doctor is not looking.
+  const probeHome = process.env.HOME;
+  const probe2 = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    const m = await import(${JSON.stringify(new URL('../../src/lib/harness-install.mjs', import.meta.url).href)});
+    process.stdout.write(JSON.stringify({ first: m.harnessDirs()[0] }));
+  `], { encoding: 'utf8', env: { PATH: process.env.PATH, HOME: probeHome, USERPROFILE: probeHome } });
+  let v2 = null;
+  try { v2 = JSON.parse(String(probe2.stdout).trim()); } catch { v2 = null; }
   const doctorUsesEnvHome = /process\.env\.HOME \|\| ''/.test(readFileSync(path.join(ROOT, 'bin', 'surf-plan-skill.mjs'), 'utf8'));
   bug('H11', 'the plan doctor checks $HOME while the installer writes to os.homedir() — they disagree under sudo/containers',
-    doctorUsesEnvHome,
-    'bin/surf-plan-skill.mjs:145 uses process.env.HOME; harness-install.mjs:15 uses os.homedir()');
+    doctorUsesEnvHome && !(v2 && v2.first && v2.first.startsWith(String(probeHome))),
+    `with HOME=${probeHome ? '(the sandbox home)' : '(unset)'} the installer now resolves ${v2 && v2.first ? v2.first.replace(String(probeHome), '$HOME') : '(refused)'} — the same source the doctor reads`);
 }
 
 // ============================================== 6. check-surf-skill.mjs ===

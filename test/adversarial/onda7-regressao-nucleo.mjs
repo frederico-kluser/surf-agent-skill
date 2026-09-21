@@ -15,9 +15,9 @@
 // This suite is ADDITIVE: it touches no other test file. Every assertion here
 // pins CORRECTED behaviour, so in the integrated state everything must pass —
 // a failure is either a broken test or a real regression (reported, never
-// weakened). The bug() records below are the historical defects, asserted as
-// "no longer reproduces", the same conversion the audit applied to BUG-21b /
-// D1b / P1b: a bug() condition is TRUE while the defect is back.
+// weakened). The bug() records below are the historical defects, asserted in
+// their FIXED state (✓ FIXED <id>), the same conversion the audit applied to
+// BUG-21b / D1b / P1b: a bug() condition is TRUE while the defect is back.
 //
 // ZERO NETWORK: HOME must be a throwaway dir (the H10 trap — config constants
 // freeze at module import, so this file mutates env BEFORE any src import and
@@ -88,10 +88,10 @@ function eq(name, actual, expected) {
   ok(name, actual === expected, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 /**
- * A historical defect, asserted as "no longer reproduces". NEVER touches the
- * exit code (same convention as brave-limits.mjs): the ok()/eq() pins carry
- * the gate. `stillBroken` TRUE means the fix regressed — reported with
- * evidence in the summary.
+ * A historical defect, asserted in its FIXED state. NEVER touches the exit
+ * code (same convention as brave-limits.mjs): the ok()/eq() pins carry the
+ * gate. `stillBroken` TRUE means the fix regressed — the row leaves the FIXED
+ * ledger and is reported with evidence in the summary.
  */
 function bug(id, title, stillBroken, evidence) {
   if (stillBroken) {
@@ -99,7 +99,7 @@ function bug(id, title, stillBroken, evidence) {
     out(`  ⚠ BUG ${id} RETURNED: ${title}\n${evidence ? '      ' + evidence + '\n' : ''}`);
   } else {
     fixed.push(id);
-    out(`  ✓ ${id} no longer reproduces — ${title}\n`);
+    out(`  ✓ FIXED ${id} — ${title}\n`);
   }
 }
 function section(t) { out(`\n${t}\n`); }
@@ -480,7 +480,7 @@ ok('zero real sockets and zero dns lookups (preload counters; n/a = preload abse
 
 out(`\n${passed} passed, ${failures.length} failed\n`);
 for (const f of failures) out(`  x ${f}\n`);
-out(`${bugs.length} defect(s) reproduced${fixed.length ? `, ${fixed.length} no longer reproduce (${fixed.join(', ')})` : ''}\n`);
+out(`${bugs.length} defect(s) reproduced${fixed.length ? `, ${fixed.length} FIXED (${fixed.join(', ')})` : ''}\n`);
 for (const b of bugs) out(`  ${b}\n`);
 out(`rede: ${havePreload ? `${netCounts.sockets} socket(s), ${netCounts.dns} dns lookup(s)` : netCounts.sockets} — fetch stub calls (scripted, fake): ${scriptedCalls}\n`);
 
