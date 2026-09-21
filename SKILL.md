@@ -21,7 +21,7 @@ allowed-tools: Agent, Task, Read, Write, Edit, Grep, Glob, Skill, Bash(git:*), B
 model: inherit
 effort: xhigh
 metadata:
-  version: "8.0.1"
+  version: "9.0.0"
   requires: "node>=18; install with `npm i -g surf-agent-skill`; a VALID BRAVE SEARCH key via `surf` or `surf-research-skill keys add --provider brave <key>` — without it every command exits 78 and this skill must stop; LLM key via `surf-research-skill ai-setup` (or exported OPENROUTER_API_KEY); per-project bash timeout via `surf-research-skill project-config`"
   environment: "A rota CALLER usa `subagent_type: \"fork\"`, que exige fork mode (CLAUDE_CODE_FORK_SUBAGENT=1 ou rollout escalonado). Sem ele a rota cai para INLINE automaticamente — nada quebra."
 ---
