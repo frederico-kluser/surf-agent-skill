@@ -303,6 +303,9 @@ export function formatGate(verdict, detail, provider = SEARCH_PROVIDER) {
     [GATE.COOLING]: [
       `Fix: wait for the cooldown to expire, or add another ${label} key —`,
       `     each key carries its own per-second rate budget.`,
+      `     Not a configuration problem: this clears itself when the cooldown`,
+      `     ends (about a minute after a burst of 429s) and the gate goes green`,
+      `     again without any change on your side.`,
     ],
     [GATE.INVALID]: [
       `This verdict is cached (up to 7 days), so re-check it before you delete`,

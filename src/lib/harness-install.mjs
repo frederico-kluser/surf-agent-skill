@@ -23,7 +23,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PROVIDERS, blankProvider } from './state.mjs';
 
-const home = os.homedir();
+// The home every WRITE resolves against. $HOME (or USERPROFILE on Windows) is
+// the contract; os.homedir() alone falls back to /etc/passwd when HOME is
+// unset, so a sandboxed run with a scrubbed environment would install into —
+// and uninstall from — the user's real home. Writers call resolveHome(), which
+// refuses to guess; the boot-time constant below keeps the passwd fallback
+// only so that importing this module never throws.
+export function resolveHome() {
+  const h = process.env.HOME || process.env.USERPROFILE;
+  if (h) return h;
+  throw new Error('surf: HOME (or USERPROFILE) is not set — refusing to guess the home directory for the skill install');
+}
+const home = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
 // This file lives at <pkgRoot>/src/lib/harness-install.mjs, so two levels up is
 // the package root — the same expression postinstall.mjs and preuninstall.mjs
@@ -46,6 +57,7 @@ const HARNESS_DIR_SUFFIXES = [
   path.join('.claude', 'skills'),       // Claude Code
   path.join('.codex', 'skills'),        // OpenAI Codex CLI
   path.join('.pi', 'agent', 'skills'),  // Pi Coding Agent
+  path.join('.dsh', 'skills'),          // DeepSeek Harness (dsh)
 ];
 
 // Boot-time snapshot of the harness dirs. Exported — bin/surf.mjs imports the
@@ -60,7 +72,7 @@ export const HARNESS_DIRS = HARNESS_DIR_SUFFIXES.map(s => path.join(home, s));
 // sweep in THIS file runs through it, so an install started after a late HOME
 // change writes and uninstalls into the same home the process now lives in.
 export function harnessDirs() {
-  return HARNESS_DIR_SUFFIXES.map(s => path.join(os.homedir(), s));
+  return HARNESS_DIR_SUFFIXES.map(s => path.join(resolveHome(), s));
 }
 
 // Legacy skill names whose stale symlinks are removed on upgrade so they don't
